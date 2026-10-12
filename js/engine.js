@@ -288,6 +288,16 @@ export class Walkable {
     // loose parts inside a leaf's outline (glazing bars, handles exported separately) belong to that leaf
     if (this.doors.length) { const grown = this.doors.map(d => d.box.clone().expandByVector(new THREE.Vector3(0.03, 0.5, 0.03)));
       this.modelRoot.traverse(o => { if (!o.isMesh || seen.has(o)) return; const bb = new THREE.Box3().setFromObject(o); const k = grown.findIndex(g => g.containsBox(bb)); if (k >= 0) { this.doors[k].meshes.push(o); (this.doors[k].extra ||= []).push(o); seen.add(o); } }); }
+    // handles: a short upright bar (or a short level bar) on a panel's face. The panel with the handle is the one that moves.
+    if (this.doors.length) {
+      const near = (d, c) => { const b = d.box, thinX = (b.max.x - b.min.x) < (b.max.z - b.min.z); const n = thinX ? Math.max(b.min.x - c.x, c.x - b.max.x, 0) : Math.max(b.min.z - c.z, c.z - b.max.z, 0);
+        const inside = thinX ? c.z > b.min.z - 0.05 && c.z < b.max.z + 0.05 : c.x > b.min.x - 0.05 && c.x < b.max.x + 0.05; return inside && c.y > b.min.y && c.y < b.max.y && n < 0.12 ? n : Infinity; };
+      this.modelRoot.traverse(o => { if (!o.isMesh) return; const bb = new THREE.Box3().setFromObject(o), z = bb.getSize(new THREE.Vector3());
+        const upright = z.y >= 0.08 && z.y <= 0.9 && z.x < 0.1 && z.z < 0.1, level = z.y < 0.08 && Math.max(z.x, z.z) >= 0.1 && Math.max(z.x, z.z) <= 0.5 && Math.min(z.x, z.z) < 0.1; if (!upright && !level) return;
+        const c = bb.getCenter(new THREE.Vector3()); let best = null, bd = Infinity; for (const d of this.doors) { const n = near(d, c); if (n < bd) { bd = n; best = d; } } if (!best) return;
+        for (const d of this.doors) { const k = d.meshes.indexOf(o); if (k >= 0 && d !== best) { d.meshes.splice(k, 1); if (d.extra) d.extra = d.extra.filter(m => m !== o); } }
+        if (!best.meshes.includes(o)) { best.meshes.push(o); (best.extra ||= []).push(o); seen.add(o); } best.handle = c; });
+    }
     // double doors: two leaves side by side in one plane open together
     for (const d of this.doors) d.pair = this.doors.find(o => o !== d && Walkable.pairOf(d.box, o.box)) || null;
     // panels overlapping in one doorway (a leaf and its glass, exported as two parts) swing as one
@@ -295,12 +305,21 @@ export class Walkable {
     // sliding doors: a leaf overlapping a panel in the next plane over. The part that reaches the floor slides over the other, which is fixed glass.
     const fixed = new Set();
     for (const d of this.doors) { const other = d.linked.find(o => Math.abs(o.box.min.y - d.box.min.y) > 0.15 || Walkable.planeGap(d.box, o.box) > 0.005); if (!other) continue;
-      if (d.box.min.y <= other.box.min.y + 0.01) { const thinX = (d.box.max.x - d.box.min.x) < (d.box.max.z - d.box.min.z); const dc = d.box.getCenter(new THREE.Vector3()), oc = other.box.getCenter(new THREE.Vector3());
-        d.slide = thinX ? new THREE.Vector3(0, 0, Math.sign(oc.z - dc.z) * (d.box.max.z - d.box.min.z) * 0.95) : new THREE.Vector3(Math.sign(oc.x - dc.x) * (d.box.max.x - d.box.min.x) * 0.95, 0, 0); fixed.add(other); } }
+      const anyHandle = [d, ...d.linked].some(x => x.handle);
+      if (anyHandle ? !!d.handle : d.box.min.y <= other.box.min.y + 0.01) { const thinX = (d.box.max.x - d.box.min.x) < (d.box.max.z - d.box.min.z); const dc = d.box.getCenter(new THREE.Vector3()), oc = other.box.getCenter(new THREE.Vector3());
+        // slide until it sits over its fixed panel (the overlapping one without a handle), else away from the handle by its width
+        const fx = d.linked.filter(o => !o.handle).sort((p, q) => p.box.getCenter(new THREE.Vector3()).distanceTo(dc) - q.box.getCenter(new THREE.Vector3()).distanceTo(dc))[0];
+        if (fx) { const fc = fx.box.getCenter(new THREE.Vector3()); d.slide = thinX ? new THREE.Vector3(0, 0, fc.z - dc.z) : new THREE.Vector3(fc.x - dc.x, 0, 0); }
+        else { const from = d.handle || oc.clone().lerp(dc, 2); d.slide = thinX ? new THREE.Vector3(0, 0, Math.sign(dc.z - from.z) * (d.box.max.z - d.box.min.z) * 0.95) : new THREE.Vector3(Math.sign(dc.x - from.x) * (d.box.max.x - d.box.min.x) * 0.95, 0, 0); }
+        for (const o of d.linked) if (!o.handle) fixed.add(o); } }
     for (const d of this.doors) if (d.slide) { d.passive = d.linked.filter(o => fixed.has(o) && !o.slide); d.blockBoxes = [d.box, ...d.passive.map(o => o.box)]; for (const o of d.passive) for (const m of o.meshes) o.owner = d; }
     const passive = this.doors.filter(d => fixed.has(d) && !d.slide);
     this.doors = this.doors.filter(d => !passive.includes(d));
     for (const d of this.doors) d.linked = d.slide ? [] : d.linked.filter(o => this.doors.includes(o));
+    // centre-opening sliders: two sliders in one plane whose handles face each other open together
+    for (const d of this.doors) if (d.slide && d.handle && !d.partner) { const dc = d.box.getCenter(new THREE.Vector3());
+      d.partner = this.doors.find(o => o !== d && o.slide && o.handle && Walkable.planeGap(d.box, o.box) < 0.01 && Math.abs(o.box.min.y - d.box.min.y) < 0.1 && o.box.getCenter(new THREE.Vector3()).distanceTo(dc) < 2 && o.handle.distanceTo(d.handle) < dc.distanceTo(o.box.getCenter(new THREE.Vector3()))) || null;
+      if (d.partner) d.partner.partner = d; }
     this.doorMeshes = this.doors.flatMap(d => [...d.meshes, ...(d.passive || []).flatMap(o => o.meshes)].map(m => (m.userData.door = d, m)));
     return this.doors;
   }
@@ -327,7 +346,7 @@ export class Walkable {
   toggleDoor(door, point, withPair = true) {
     point ||= door.box.getCenter(new THREE.Vector3());
     if (withPair) {   // the leaf, its double-door partner and any panel overlapping either swing together, to one state
-      let pt = point; const set = new Set([door, ...(door.linked || [])]);
+      let pt = point; const set = new Set([door, ...(door.linked || []), ...(door.partner ? [door.partner] : [])]);
       if (door.pair) { const o = door.pair.box, b = door.box; pt = new THREE.Vector3((Math.max(b.min.x, o.min.x) + Math.min(b.max.x, o.max.x)) / 2, (b.min.y + b.max.y) / 2, (Math.max(b.min.z, o.min.z) + Math.min(b.max.z, o.max.z)) / 2); set.add(door.pair); for (const l of door.pair.linked || []) set.add(l); }
       if (!door.pair && set.size > 1) {   // overlapping panels share one hinge side: push the point out to the group's edge on the clicked side
         const U = [...set].reduce((u, o) => u.union(o.box), door.box.clone()), c = U.getCenter(new THREE.Vector3()); const alongX = (U.max.x - U.min.x) > (U.max.z - U.min.z);
@@ -340,6 +359,7 @@ export class Walkable {
       const pq = parent.getWorldQuaternion(new THREE.Quaternion()).invert(); const ps = parent.getWorldScale(new THREE.Vector3());
       door.track = door.slide.clone().applyQuaternion(pq).divide(ps); door.base = pivot.position.clone(); door.pivot = pivot;
     }
+    if (!door.pivot && door.handle) point = door.handle;   // the hinge is on the edge away from the handle
     if (!door.pivot) {   // hinge on the vertical edge away from where it was clicked (the handle side), swing away from the viewer
       const b = door.box, c = b.getCenter(new THREE.Vector3()); const alongX = (b.max.x - b.min.x) > (b.max.z - b.min.z);
       const hinge = alongX ? new THREE.Vector3(point.x > c.x ? b.min.x : b.max.x, c.y, c.z) : new THREE.Vector3(c.x, c.y, point.z > c.z ? b.min.z : b.max.z);
