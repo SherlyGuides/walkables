@@ -114,7 +114,7 @@ export class Walkable {
     this.modelGroup.updateMatrixWorld(true);
     const b = this.bounds; b.box.setFromObject(this.modelGroup); b.box.getCenter(b.center); b.box.getSize(b.size); b.radius = Math.max(b.size.x, b.size.y, b.size.z) || 1;
     this.camera.near = Math.max(0.1, b.radius / 1000); this.camera.far = Math.max(50, b.radius * 6);   // a tighter depth range: surfaces a few mm apart stop flickering this.camera.updateProjectionMatrix();
-    this.doors = null; this.invalidateCollider(); this.buildHelpers(); this.placeSun();
+    this.doors = null; this._autoStart = null; this.invalidateCollider(); this.buildHelpers(); this.placeSun();
     if (this.mixer) this.mixer.update(0);
   }
   buildHelpers() {
@@ -262,7 +262,32 @@ export class Walkable {
   }
 
   // ---------- camera: views, framing, start pose ----------
-  defaultStart() { const b = this.bounds; return { pos: [b.center.x, b.box.min.y + this.data.player.eye, b.center.z], yaw: 0, pitch: 0 }; }
+  // Where a visitor walks in when the architect has not chosen: on the main floor (the commonest level that has a ceiling
+  // over it), at the most open spot, facing the longest view. Falls back to the middle of the model.
+  defaultStart() {
+    const b = this.bounds, eye = this.data.player.eye; const fallback = { pos: [b.center.x, b.box.min.y + eye, b.center.z], yaw: 0, pitch: 0 };
+    if (!this.modelRoot) return fallback; if (this._autoStart) return JSON.parse(JSON.stringify(this._autoStart));
+    const col = this.collider || (this.collider = this.buildCollider()); if (!col) return fallback; col.updateMatrixWorld();
+    const R = new THREE.Raycaster(), down = new THREE.Vector3(0, -1, 0), o = new THREE.Vector3(), size = b.size; const step = Math.max(0.4, Math.max(size.x, size.z) / 70);
+    const covered = [], open = [];
+    for (let x = b.box.min.x + step / 2; x < b.box.max.x; x += step) for (let z = b.box.min.z + step / 2; z < b.box.max.z; z += step) {
+      R.set(o.set(x, b.box.max.y + 1, z), down); R.far = size.y + 2; R.firstHitOnly = false; const hits = R.intersectObject(col).sort((p, q) => p.distance - q.distance);
+      for (let k = 0; k < hits.length; k++) { const h = hits[k]; if (!h.face || Math.abs(h.face.normal.y) < 0.7) continue; const room = k === 0 ? Infinity : h.distance - hits[k - 1].distance; if (room < 2.1) continue;
+        (k === 0 ? open : covered).push({ x, z, y: h.point.y }); }
+    }
+    const pool = covered.length ? covered : open; if (!pool.length) return fallback;
+    const hist = new Map(); for (const c of pool) { const k = Math.round(c.y * 10); hist.set(k, (hist.get(k) || 0) + 1); }
+    const floorY = [...hist].sort((p, q) => q[1] - p[1])[0][0] / 10;
+    const ray = new THREE.Raycaster(); ray.firstHitOnly = true; const dist = (from, dir, far) => { ray.set(from, dir); ray.far = far; const h = ray.intersectObject(col)[0]; return h ? h.distance : far; };
+    let best = null;
+    for (const c of pool) { if (Math.abs(c.y - floorY) > 0.15) continue; let clear = Infinity;
+      for (const hgt of [0.4, 1.2]) for (let a = 0; a < 8 && clear > 0.5; a++) { const ang = a * Math.PI / 4; clear = Math.min(clear, dist(o.set(c.x, c.y + hgt, c.z), new THREE.Vector3(Math.cos(ang), 0, Math.sin(ang)), 6)); }
+      if (!best || clear > best.clear) best = { ...c, clear }; }
+    if (!best || best.clear < 0.5) return fallback;
+    let yaw = 0, far = 0; for (let i = 0; i < 36; i++) { const yw = i * Math.PI / 18; const d = dist(o.set(best.x, best.y + eye, best.z), new THREE.Vector3(-Math.sin(yw), 0, -Math.cos(yw)), 60); if (d > far) { far = d; yaw = yw; } }
+    this._autoStart = { pos: [+best.x.toFixed(3), +(best.y + eye).toFixed(3), +best.z.toFixed(3)], yaw: +yaw.toFixed(4), pitch: -0.05 };
+    return JSON.parse(JSON.stringify(this._autoStart));
+  }
   frameView(kind = 'iso') {
     const b = this.bounds; const aspect = (this.canvas.clientWidth / this.canvas.clientHeight) || 1.5; const d = b.radius * 1.15 * Math.min(2.6, Math.max(1, 1.05 / aspect)); const off = kind === 'top' ? new THREE.Vector3(0, d * 1.6, 0.001) : new THREE.Vector3(-d * 0.8, d * 0.75, d * 0.9);
     return { pos: b.center.clone().add(off).toArray(), target: b.center.toArray() };

@@ -269,7 +269,7 @@ function setupTour() {
   if (engine.mode === 'walk') setTimeout(startTour, 500); else engine.on('mode', function once(m) { if (m === 'walk' && !tourOn) { try { if (localStorage.getItem(tourKey) === '1') return; } catch {} setTimeout(startTour, 400); } });
 }
 function startTour() {
-  if (tourOn) return; tourOn = true; const hasDoors = !!(engine.doors && engine.doors.length), hasAuto = !!(engine.doors && engine.doors.some(d => d.auto));
+  if (tourOn) return; tourOn = true; $('hint').hidden = true; const hasDoors = !!(engine.doors && engine.doors.length), hasAuto = !!(engine.doors && engine.doors.some(d => d.auto));
   const K = (...k) => k.map(x => `<span class="kbd">${x}</span>`).join('');
   const steps = [
     isTouch ? { title: 'Look around', text: 'Drag anywhere on the screen to turn your head.', keys: '', until: 'look' }
@@ -290,7 +290,7 @@ function startTour() {
   };
   const done = () => { if (card.classList.contains('ok')) return; card.classList.add('ok'); clearTimeout(timer); timer = setTimeout(next, 900); };
   const next = () => { clearTimeout(timer); if (++i >= steps.length) return finish(); show(); };
-  const finish = () => { card.hidden = true; glowOff(); tourOn = false; try { localStorage.setItem(tourKey, '1'); } catch {} removeEventListener('keydown', key, true); };
+  const finish = () => { card.hidden = true; glowOff(); tourOn = false; updateHint(); try { localStorage.setItem(tourKey, '1'); } catch {} removeEventListener('keydown', key, true); };
   const key = (e) => { if (!tourOn) return; if (e.key === 'Enter') { e.preventDefault(); next(); } if (e.key === 'Escape' && !engine.walk.locked) finish(); };
   addEventListener('keydown', key, true); $('tNext').onclick = next; $('tSkip').onclick = finish;
   engine.on('look', () => { if (tourOn && steps[i] && steps[i].until === 'look' && ++lookMoves > 25) done(); });
@@ -339,7 +339,7 @@ document.addEventListener('pointerdown', (e) => { if (!$('helpSheet').contains(e
 function updateMode(m) { for (const b of modeBtns) b.classList.toggle('on', b.dataset.mode === m); $('crosshair').hidden = m === 'orbit' || isTouch; $('stick').hidden = m === 'orbit' || !isTouch; if (m !== 'orbit') $('welcome').hidden = true; updateHint(); }
 let touchHintShown = false;
 function updateHint() {
-  const m = engine.mode; const h = $('hint'); if (m === 'orbit') { h.hidden = true; return; }
+  const m = engine.mode; const h = $('hint'); if (m === 'orbit' || tourOn) { h.hidden = true; return; }   // the tour says it better while it is open
   if (isTouch) { if (touchHintShown) return; touchHintShown = true; h.innerHTML = 'Drag to look around<small>Use the circle to walk</small>'; h.hidden = false; setTimeout(() => h.hidden = true, 2800); return; }
   h.hidden = engine.walk.locked; const verb = engine.walk.lockFailed ? 'Drag' : 'Click'; h.innerHTML = m === 'walk' ? verb + ' to aim with the mouse<small>Click again for the cursor · W A S D or scroll to walk · F opens a door</small>' : verb + ' to look around<small>W A S D to move · E up · Q down · Esc to stop</small>';
 }

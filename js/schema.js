@@ -19,9 +19,9 @@ export function defaultScene() {
     brand: { firm: '', logo: null, accent: '#1f4e79', invertDark: false, watermark: true },
     model: { file: 'model.glb', scale: 1, upAxis: 'y', animations: true, stats: null },
     start: null,                                      // { pos:[x,y,z], yaw, pitch } eye position, set by the architect
-    player: { eye: 1.6, speed: 2.2, doors: true },   // doors: walk through door leaves
-    light: { preset: 'daylight', ...LIGHT_PRESETS.daylight, background: 'auto' },
-    env: { ceiling: 'walk', ground: true, grid: true, edges: false, garden: false },   // ceiling: walk | always | off; edges: soft lines on corners; garden: lawn and sky outside
+    player: { eye: 1.45, speed: 2.2, doors: true },   // doors: walk through door leaves
+    light: { preset: 'interior', ...LIGHT_PRESETS.interior, background: 'auto' },
+    env: { ceiling: 'walk', ground: true, grid: true, edges: true, garden: true },   // ceiling: walk | always | off; edges: soft lines on corners; garden: lawn and sky outside
     materials: {},                                    // 'mesh:<key>' | 'mat:<name>' -> { color, roughness, metalness, hidden }
     plaque: null,                                     // { pos, normal, width }
     media: [],                                        // { id, file, kind:'image'|'video', pos, normal, width, loop }
@@ -30,7 +30,7 @@ export function defaultScene() {
     plan: null,                                       // file name of the floor plan image or pdf
     attachments: [],                                  // { name, file }
     layouts: null,                                    // { file, default, options:[{ key, name }] } furniture arrangements: file maps node name -> { key: 16-number matrix }
-    modes: { default: 'orbit', walk: true, fly: true, orbit: true },
+    modes: { default: 'walk', walk: true, fly: true, orbit: true },
   };
 }
 
@@ -39,6 +39,7 @@ export function mergeScene(partial) {
   if (!partial || typeof partial !== 'object') return d;
   const out = { ...d, ...partial };
   for (const k of ['brand', 'model', 'player', 'light', 'env', 'modes']) out[k] = { ...d[k], ...(partial[k] || {}) };
+  if (partial.light && partial.light.preset && LIGHT_PRESETS[partial.light.preset]) out.light = { ...d.light, ...LIGHT_PRESETS[partial.light.preset], ...partial.light };   // a saved preset keeps its own interior/tone
   out.materials = partial.materials || {};
   out.media = Array.isArray(partial.media) ? partial.media : [];
   out.views = Array.isArray(partial.views) ? partial.views : [];
