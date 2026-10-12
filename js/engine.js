@@ -283,11 +283,18 @@ export class Walkable {
       // a frame has a hole where the leaf goes: only a part that is solid at its middle swings (frames stay put and stay walkable)
       const c = box.getCenter(new THREE.Vector3()); const thinX = (box.max.x - box.min.x) < (box.max.z - box.min.z); const dir = thinX ? new THREE.Vector3(1, 0, 0) : new THREE.Vector3(0, 0, 1);
       const ray = new THREE.Raycaster(c.clone().addScaledVector(dir, -1), dir, 0, 2); const solid = [0, 0.15, -0.15].some(dy => { ray.ray.origin.y = c.y + dy * (box.max.y - box.min.y); return ray.intersectObjects(meshes, false).length > 0; });
-      if (solid) this.doors.push({ leaf, meshes, box, open: 0, target: 0, pivot: null });
+      // a door stands in an opening: there is room on both faces. A panel fixed to a wall (cladding, a mirror) has the wall right behind it.
+      const own = new Set(meshes); const thin = thinX ? box.max.x - box.min.x : box.max.z - box.min.z; const probe = new THREE.Raycaster(); probe.far = 0.2;
+      const backed = [1, -1].some(sg => { let hits = 0; for (const [fy, fw] of [[0.3, 0.5], [0.5, 0.25], [0.5, 0.75], [0.7, 0.5]]) { const o = new THREE.Vector3(box.min.x + (box.max.x - box.min.x) * (thinX ? 0.5 : fw), box.min.y + (box.max.y - box.min.y) * fy, box.min.z + (box.max.z - box.min.z) * (thinX ? fw : 0.5));
+        o.addScaledVector(dir, sg * (thin / 2 + 0.005)); probe.set(o, dir.clone().multiplyScalar(sg)); if (probe.intersectObject(this.modelRoot, true).some(h => !own.has(h.object) && h.object.visible)) hits++; } return hits >= 3; });
+      if (solid && !backed) this.doors.push({ leaf, meshes, box, open: 0, target: 0, pivot: null });
     });
     // loose parts inside a leaf's outline (glazing bars, handles exported separately) belong to that leaf
     if (this.doors.length) { const grown = this.doors.map(d => d.box.clone().expandByVector(new THREE.Vector3(0.03, 0.5, 0.03)));
-      this.modelRoot.traverse(o => { if (!o.isMesh || seen.has(o)) return; const bb = new THREE.Box3().setFromObject(o); const k = grown.findIndex(g => g.containsBox(bb)); if (k >= 0) { this.doors[k].meshes.push(o); (this.doors[k].extra ||= []).push(o); seen.add(o); } }); }
+      this.modelRoot.traverse(o => { if (!o.isMesh || seen.has(o)) return; const bb = new THREE.Box3().setFromObject(o); let k = grown.findIndex(g => g.containsBox(bb));
+        if (k < 0) { const z = bb.getSize(new THREE.Vector3()); if (Math.max(z.x, z.y, z.z) < 0.4) { const c = bb.getCenter(new THREE.Vector3());   // door hardware: levers, roses, locks on either face
+          k = this.doors.findIndex(d => { const b = d.box, thinX = (b.max.x - b.min.x) < (b.max.z - b.min.z), m = 0.25; return c.y > b.min.y && c.y < b.max.y && (thinX ? c.x > b.min.x - m && c.x < b.max.x + m && c.z > b.min.z && c.z < b.max.z : c.z > b.min.z - m && c.z < b.max.z + m && c.x > b.min.x && c.x < b.max.x); }); } }
+        if (k >= 0) { this.doors[k].meshes.push(o); (this.doors[k].extra ||= []).push(o); seen.add(o); } }); }
     // handles: a short upright bar (or a short level bar) on a panel's face. The panel with the handle is the one that moves.
     if (this.doors.length) {
       const near = (d, c) => { const b = d.box, thinX = (b.max.x - b.min.x) < (b.max.z - b.min.z); const n = thinX ? Math.max(b.min.x - c.x, c.x - b.max.x, 0) : Math.max(b.min.z - c.z, c.z - b.max.z, 0);
@@ -298,6 +305,20 @@ export class Walkable {
         for (const d of this.doors) { const k = d.meshes.indexOf(o); if (k >= 0 && d !== best) { d.meshes.splice(k, 1); if (d.extra) d.extra = d.extra.filter(m => m !== o); } }
         if (!best.meshes.includes(o)) { best.meshes.push(o); (best.extra ||= []).push(o); seen.add(o); } best.handle = c; });
     }
+    // automatic doors: a run of handle-less glass panels in two planes. The plane with fewer panels holds the moving leaves; the rest is fixed glass.
+    { const free = this.doors.filter(d => !d.handle), parent = new Map(free.map(d => [d, d])); const root = (d) => { while (parent.get(d) !== d) d = parent.get(d); return d; };
+      const axisOf = (b) => (b.max.x - b.min.x) < (b.max.z - b.min.z) ? 'z' : 'x', thinOf = (b) => axisOf(b) === 'z' ? (b.min.x + b.max.x) / 2 : (b.min.z + b.max.z) / 2;
+      for (const a of free) for (const b of free) { if (a === b || axisOf(a.box) !== axisOf(b.box) || Math.abs(thinOf(a.box) - thinOf(b.box)) > 0.1 || Math.abs(a.box.min.y - b.box.min.y) > 0.1) continue;
+        const k = axisOf(a.box), samePlane = Math.abs(thinOf(a.box) - thinOf(b.box)) < 0.005; if (Math.min(a.box.max[k], b.box.max[k]) - Math.max(a.box.min[k], b.box.min[k]) > (samePlane ? -0.8 : -0.05)) parent.set(root(a), root(b)); }   // leaves drawn ajar can stand apart
+      const groups = new Map(); for (const d of free) { const r = root(d); if (!groups.has(r)) groups.set(r, []); groups.get(r).push(d); }
+      for (const g of groups.values()) { if (g.length < 3) continue; const k = axisOf(g[0].box); const planes = new Map(); for (const d of g) { const t = Math.round(thinOf(d.box) * 100); if (!planes.has(t)) planes.set(t, []); planes.get(t).push(d); }
+        if (planes.size < 2) continue; const sorted = [...planes.values()].sort((a, b) => a.length - b.length); if (sorted[0].length === sorted[1].length) continue;
+        const mid = g.reduce((m, d) => m + (d.box.min[k] + d.box.max[k]) / 2, 0) / g.length;
+        for (const d of sorted[0]) { d.auto = true; const c = d.box.getCenter(new THREE.Vector3());
+          // the meeting edge faces the nearest other moving leaf (or the middle of the run when there is only one)
+          const half = (d.box.max[k] - d.box.min[k]) / 2; const other = sorted[0].filter(o => o !== d && Math.abs(o.box.getCenter(new THREE.Vector3())[k] - c[k]) > half).sort((p, q) => Math.abs(p.box.getCenter(new THREE.Vector3())[k] - c[k]) - Math.abs(q.box.getCenter(new THREE.Vector3())[k] - c[k]))[0];
+          const toward = other ? other.box.getCenter(new THREE.Vector3())[k] : mid; d.handle = c.clone(); d.handle[k] = toward > c[k] ? d.box.max[k] : d.box.min[k]; }
+        for (const d of g) if (!d.auto) d.fixedGlass = true; } }
     // double doors: two leaves side by side in one plane open together
     for (const d of this.doors) d.pair = this.doors.find(o => o !== d && Walkable.pairOf(d.box, o.box)) || null;
     // panels overlapping in one doorway (a leaf and its glass, exported as two parts) swing as one
@@ -314,12 +335,19 @@ export class Walkable {
         for (const o of d.linked) if (!o.handle) fixed.add(o); } }
     for (const d of this.doors) if (d.slide) { d.passive = d.linked.filter(o => fixed.has(o) && !o.slide); d.blockBoxes = [d.box, ...d.passive.map(o => o.box)]; for (const o of d.passive) for (const m of o.meshes) o.owner = d; }
     const passive = this.doors.filter(d => fixed.has(d) && !d.slide);
-    this.doors = this.doors.filter(d => !passive.includes(d));
+    this.doors = this.doors.filter(d => !passive.includes(d) && !d.fixedGlass);
     for (const d of this.doors) d.linked = d.slide ? [] : d.linked.filter(o => this.doors.includes(o));
     // centre-opening sliders: two sliders in one plane whose handles face each other open together
     for (const d of this.doors) if (d.slide && d.handle && !d.partner) { const dc = d.box.getCenter(new THREE.Vector3());
       d.partner = this.doors.find(o => o !== d && o.slide && o.handle && Walkable.planeGap(d.box, o.box) < 0.01 && Math.abs(o.box.min.y - d.box.min.y) < 0.1 && o.box.getCenter(new THREE.Vector3()).distanceTo(dc) < 2 && o.handle.distanceTo(d.handle) < dc.distanceTo(o.box.getCenter(new THREE.Vector3()))) || null;
       if (d.partner) d.partner.partner = d; }
+    // a centre-opening pair drawn ajar: shut it, each leaf moving half the gap toward the other
+    this.modelGroup.updateMatrixWorld(true);
+    for (const d of this.doors) if (d.slide && d.partner && !d.closeShift) { const a = d.box, b = d.partner.box; const thinX = (a.max.x - a.min.x) < (a.max.z - a.min.z);
+      const gap = thinX ? Math.max(b.min.z - a.max.z, a.min.z - b.max.z) : Math.max(b.min.x - a.max.x, a.min.x - b.max.x); if (!(gap > 0.01 && gap < 1.5)) continue;
+      const dir = thinX ? Math.sign((b.min.z + b.max.z) - (a.min.z + a.max.z)) : Math.sign((b.min.x + b.max.x) - (a.min.x + a.max.x));
+      d.closeShift = thinX ? new THREE.Vector3(0, 0, dir * gap / 2) : new THREE.Vector3(dir * gap / 2, 0, 0); d.partner.closeShift = d.closeShift.clone().negate();
+      for (const x of [d, d.partner]) { x.slide.sub(x.closeShift).add(x.closeShift); x.blockBoxes = [x.box.clone().translate(x.closeShift), ...(x.passive || []).map(o => o.box)]; this.slidePivot(x); } }
     this.doorMeshes = this.doors.flatMap(d => [...d.meshes, ...(d.passive || []).flatMap(o => o.meshes)].map(m => (m.userData.door = d, m)));
     return this.doors;
   }
@@ -354,11 +382,7 @@ export class Walkable {
       }
       const target = door.target ? 0 : 1; for (const o of set) if (o.target !== target) this.toggleDoor(o, pt, false); return;
     }
-    if (!door.pivot && door.slide) {   // sliding leaf: a group that moves along the track
-      const parent = door.leaf.parent; const pivot = new THREE.Group(); parent.add(pivot); pivot.updateMatrixWorld(true); pivot.attach(door.leaf); for (const m of door.extra || []) pivot.attach(m);
-      const pq = parent.getWorldQuaternion(new THREE.Quaternion()).invert(); const ps = parent.getWorldScale(new THREE.Vector3());
-      door.track = door.slide.clone().applyQuaternion(pq).divide(ps); door.base = pivot.position.clone(); door.pivot = pivot;
-    }
+    if (!door.pivot && door.slide) this.slidePivot(door);
     if (!door.pivot && door.handle) point = door.handle;   // the hinge is on the edge away from the handle
     if (!door.pivot) {   // hinge on the vertical edge away from where it was clicked (the handle side), swing away from the viewer
       const b = door.box, c = b.getCenter(new THREE.Vector3()); const alongX = (b.max.x - b.min.x) > (b.max.z - b.min.z);
@@ -371,10 +395,19 @@ export class Walkable {
     }
     door.target = door.target ? 0 : 1; if (reduced) door.open = door.target; this.emit('door', door);
   }
+  // sliding leaf: a group that moves along the track. World offsets are turned into the parent's local space.
+  slidePivot(door) {
+    const parent = door.leaf.parent; const pivot = new THREE.Group(); parent.add(pivot); pivot.updateMatrixWorld(true); pivot.attach(door.leaf); for (const m of door.extra || []) pivot.attach(m);
+    const pq = parent.getWorldQuaternion(new THREE.Quaternion()).invert(); const ps = parent.getWorldScale(new THREE.Vector3()); const local = (v) => v.clone().applyQuaternion(pq).divide(ps);
+    door.track = local(door.slide); door.shut = local(door.closeShift || new THREE.Vector3()); door.base = pivot.position.clone(); door.pivot = pivot;
+    pivot.position.copy(door.base).add(door.shut);
+  }
   stepDoors(dt) {
     if (!this.doors) return;
+    if (this.mode !== 'orbit') { const p = this.camera.position; for (const d of this.doors) if (d.auto) { const c = d.closedCenter || (d.closedCenter = d.box.getCenter(new THREE.Vector3()).add(d.closeShift || new THREE.Vector3()));
+      const near = Math.hypot(p.x - c.x, p.z - c.z), dy = Math.abs(p.y - this.data.player.eye - d.box.min.y); if (dy < 1 && near < 2.5 && !d.target) { if (!d.pivot && d.slide) this.slidePivot(d); d.target = 1; } else if ((near > 3.5 || dy >= 1) && d.target && !d.held) d.target = 0; } }
     for (const d of this.doors) { if (!d.pivot || d.open === d.target) continue; d.open = d.target > d.open ? Math.min(d.target, d.open + dt / 0.6) : Math.max(d.target, d.open - dt / 0.6);
-      if (d.slide) d.pivot.position.copy(d.base).addScaledVector(d.track, easeInOut(d.open));
+      if (d.slide) { const k = easeInOut(d.open); d.pivot.position.copy(d.base).addScaledVector(d.shut, 1 - k).addScaledVector(d.track, k); }
       else d.pivot.quaternion.copy(d.base).multiply(new THREE.Quaternion().setFromAxisAngle(d.axis, d.sign * easeInOut(d.open) * Math.PI / 2)); }
   }
   // closed doors block like walls: push the capsule out of the leaf's box
@@ -397,11 +430,11 @@ export class Walkable {
     const c = this.collider; if (!c) return; const eye = this.data.player.eye; const sp = this.data.player.speed * (this.walk.run ? PLAYER.runMul : 1);
     this.walk.velY = Math.max(this.walk.velY - 9.8 * dt, -8);
     const pos = this.camera.position.clone(); pos.y -= eye; const mv = this.moveInput(); pos.addScaledVector(mv, sp * dt); pos.y += this.walk.velY * dt;
-    // stairs: a step up to 40 cm just ahead is climbed rather than treated as a wall
+    // stairs: a step up to 25 cm just ahead is climbed (stair risers are ~17 cm; seats and poufs at 40 cm+ are not)
     if (mv.lengthSq() > 0.01 && this.walk.velY > -1) {
       const t2 = this._st || (this._st = { ray: new THREE.Raycaster(), o: new THREE.Vector3(), d: new THREE.Vector3(0, -1, 0) }); const feetY = this.camera.position.y - eye;
       t2.o.copy(pos).addScaledVector(mv.clone().normalize(), PLAYER.radius + 0.06); t2.o.y = feetY + 0.45; t2.ray.set(t2.o, t2.d); t2.ray.far = 0.45; t2.ray.firstHitOnly = true;
-      const h = t2.ray.intersectObject(c)[0]; if (h) { const rise = t2.o.y - h.distance - feetY; if (rise > 0.02 && rise <= 0.4) { pos.y = Math.max(pos.y, feetY + rise + 0.01); this.walk.velY = 0; } }
+      const h = t2.ray.intersectObject(c)[0]; if (h) { const rise = t2.o.y - h.distance - feetY; if (rise > 0.02 && rise <= 0.25) { pos.y = Math.max(pos.y, feetY + rise + 0.01); this.walk.velY = 0; } }
     }
     const t = this._t || (this._t = { box: new THREE.Box3(), seg: new THREE.Line3(), v: new THREE.Vector3(), tri: new THREE.Vector3() });
     t.seg.start.set(pos.x, pos.y + PLAYER.radius, pos.z); t.seg.end.set(pos.x, pos.y + PLAYER.height - PLAYER.radius, pos.z);
