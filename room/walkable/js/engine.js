@@ -283,7 +283,7 @@ export class Walkable {
       if (was === 'orbit' || resetPose) { const s = this.data.start || this.defaultStart(); this.setPose(mode === 'fly' && was === 'walk' ? this.getPose() : s); }
       if (!isTouch) this.lock();
     } else { this.unlock(); if (was !== 'orbit') { const v = this.frameView('iso'); this.camera.position.fromArray(v.pos); this.orbit.target.fromArray(v.target); this.orbit.update(); } }
-    this.walk.keys = {}; this.walk.stick.set(0, 0); this.applyEnv(); this.emit('mode', mode);
+    this.walk.keys = {}; this.walk.stick.set(0, 0); this.walk.wheel = 0; this.applyEnv(); this.emit('mode', mode);
   }
   lock() {
     const el = this.canvas; if (document.pointerLockElement === el || !el.requestPointerLock) return;
@@ -557,14 +557,14 @@ export class Walkable {
   static isDoorLeaf(s) { const thin = Math.min(s.x, s.z), wide = Math.max(s.x, s.z); return thin < 0.12 && wide >= 0.5 && wide <= 1.4 && s.y >= 1.8 && s.y <= 2.8; }
   moveInput() {
     const k = this.walk.keys; let mx = (k.KeyD || k.ArrowRight ? 1 : 0) - (k.KeyA || k.ArrowLeft ? 1 : 0), mz = (k.KeyW || k.ArrowUp ? 1 : 0) - (k.KeyS || k.ArrowDown ? 1 : 0);
-    mx += this.walk.stick.x; mz -= this.walk.stick.y;
+    mx += this.walk.stick.x; mz -= this.walk.stick.y; const wh = this.walk.wheel || 0; if (Math.abs(wh) > 0.02 && Math.abs(mz) < 0.1) mz = Math.sign(wh);
     const f = new THREE.Vector3(); this.camera.getWorldDirection(f); f.y = 0; f.normalize(); const r = new THREE.Vector3().crossVectors(f, new THREE.Vector3(0, 1, 0));
     const mv = new THREE.Vector3().addScaledVector(f, mz).addScaledVector(r, mx); if (mv.lengthSq() > 1) mv.normalize(); return mv;
   }
   walkStep(dt) {
     const c = this.collider; if (!c) return; const eye = this.data.player.eye; const sp = this.data.player.speed * (this.walk.run ? PLAYER.runMul : 1);
     this.walk.velY = Math.max(this.walk.velY - 9.8 * dt, -8);
-    const pos = this.camera.position.clone(); pos.y -= eye; const mv = this.moveInput(); pos.addScaledVector(mv, sp * dt); pos.y += this.walk.velY * dt;
+    const pos = this.camera.position.clone(); pos.y -= eye; const mv = this.moveInput(); this.useWheel(sp * dt); pos.addScaledVector(mv, sp * dt); pos.y += this.walk.velY * dt;
     // stairs: a step up to 25 cm just ahead is climbed (stair risers are ~17 cm; seats and poufs at 40 cm+ are not)
     if (mv.lengthSq() > 0.01 && this.walk.velY > -1) {
       const t2 = this._st || (this._st = { ray: new THREE.Raycaster(), o: new THREE.Vector3(), d: new THREE.Vector3(0, -1, 0) }); const feetY = this.camera.position.y - eye;
@@ -583,9 +583,10 @@ export class Walkable {
   }
   flyStep(dt) {
     const k = this.walk.keys; const sp = PLAYER.flySpeed * (this.walk.run ? 2.5 : 1); const mv = this.moveInput(); const up = (k.KeyE || k.Space ? 1 : 0) - (k.KeyQ || k.KeyC ? 1 : 0);
-    this.camera.position.addScaledVector(mv, sp * dt); this.camera.position.y += up * sp * dt;
+    this.camera.position.addScaledVector(mv, sp * dt); this.camera.position.y += up * sp * dt; this.useWheel(sp * dt);
   }
-  look(dx, dy) { const eu = new THREE.Euler().setFromQuaternion(this.camera.quaternion, 'YXZ'); eu.y -= dx * 0.0025; eu.x = Math.max(-1.45, Math.min(1.45, eu.x - dy * 0.0025)); eu.z = 0; this.camera.quaternion.setFromEuler(eu); }
+  useWheel(d) { const w = this.walk.wheel || 0; if (!w) return; this.walk.wheel = Math.abs(w) <= d ? 0 : w - Math.sign(w) * d; }
+  look(dx, dy) { const eu = new THREE.Euler().setFromQuaternion(this.camera.quaternion, 'YXZ'); eu.y -= dx * 0.0025; eu.x = Math.max(-1.45, Math.min(1.45, eu.x - dy * 0.0025)); eu.z = 0; this.camera.quaternion.setFromEuler(eu); this.emit('look'); }
 
   bindInput() {
     const c = this.canvas; c.tabIndex = 0;
@@ -594,12 +595,15 @@ export class Walkable {
     c.addEventListener('pointerdown', e => { this._down = [e.clientX, e.clientY]; if (this.mode !== 'orbit') this.emit('interact'); if (this.mode !== 'orbit' && !this.walk.locked && e.pointerType !== 'mouse') this.walk.look = { id: e.pointerId, x: e.clientX, y: e.clientY }; if (this.mode !== 'orbit' && e.pointerType === 'mouse' && !this.walk.locked) this.walk.look = { id: e.pointerId, x: e.clientX, y: e.clientY, moved: 0 }; });
     c.addEventListener('pointermove', e => { const l = this.walk.look; if (!l || e.pointerId !== l.id) return; const dx = e.clientX - l.x, dy = e.clientY - l.y; l.x = e.clientX; l.y = e.clientY; if (l.moved !== undefined) l.moved += Math.abs(dx) + Math.abs(dy); this.look(dx * 1.6, dy * 1.6); });
     const end = () => { this.walk.look = null; }; c.addEventListener('pointerup', end); c.addEventListener('pointercancel', end);
+    c.addEventListener('wheel', e => { if (this.mode === 'orbit') return; e.preventDefault();   // in Walk and Fly the wheel steps forward and back
+      const px = e.deltaY * (e.deltaMode === 1 ? 33 : e.deltaMode === 2 ? 400 : 1); this.walk.wheel = Math.max(-3, Math.min(3, (this.walk.wheel || 0) - Math.max(-0.6, Math.min(0.6, px * 0.005)))); }, { passive: false });
     c.addEventListener('click', e => {
       if (this.pickHandler) { const hit = this.walk.locked ? this.pickCenter() : this.pick(e.clientX, e.clientY); this.pickHandler(hit, e); return; }
       if (this._down && Math.hypot(e.clientX - this._down[0], e.clientY - this._down[1]) > 6 && !this.walk.locked) return;   // that was a drag, not a click
       if (!this.doors && this.modelRoot) this.findDoors();
-      const dh = this.walk.locked ? this.pickDoor() : this.pickDoor(e.clientX, e.clientY); if (dh) this.toggleDoor(dh.door, dh.point);
-      if (this.mode !== 'orbit' && !this.walk.locked && !isTouch) this.lock();   // the mouse steers until Esc
+      if (this.walk.locked) { this.unlock(); return; }   // second click: the cursor comes back (F opens a door while aiming)
+      const dh = this.pickDoor(e.clientX, e.clientY); if (dh) { this.toggleDoor(dh.door, dh.point); return; }   // a door under the cursor opens
+      if (this.mode !== 'orbit' && !isTouch) this.lock();   // first click: the mouse aims, until a click or Esc
       return;
     });
     addEventListener('keydown', e => { if (e.target && /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return; this.walk.keys[e.code] = true;

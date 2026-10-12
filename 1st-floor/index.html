@@ -9,7 +9,7 @@
 <meta property="og:url" content="https://sherlyguides.github.io/walkables/1st-floor/">
 <title>1st floor FINAL</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%231B1A16%22%20stroke-width%3D%222.2%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cstyle%3E%40media%20(prefers-color-scheme%3A%20dark)%7Bpath%7Bstroke%3A%23EDEBE5%7Dcircle%7Bfill%3A%2386BBA4%7D%7D%3C%2Fstyle%3E%3Cpath%20d%3D%22M9.5%2020.5H7.5a4%204%200%200%201-4-4v-9a4%204%200%200%201%204-4h9a4%204%200%200%201%204%204v9a4%204%200%200%201-4%204h-2%22%2F%3E%3Cpath%20d%3D%22M12%2021v-4.5a4.5%204.5%200%200%200-4.5-4.5%22%2F%3E%3Ccircle%20cx%3D%228.5%22%20cy%3D%228.5%22%20r%3D%222.2%22%20fill%3D%22%232F5E4E%22%20stroke%3D%22none%22%2F%3E%3C%2Fsvg%3E%0A" type="image/svg+xml">
-<link rel="stylesheet" href="walkable/css/walkable.css?v=mv51bixo">
+<link rel="stylesheet" href="walkable/css/walkable.css?v=mv51iog4">
 <style>
   html, body { height:100%; overflow:hidden; }
   body { position:relative; height:100dvh; }
@@ -45,6 +45,27 @@
   .gate h1 { font:400 30px/1.05 var(--serif); }
   .gate input { text-align:center; font-family:var(--mono); letter-spacing:.3em; font-size:16px; height:44px; }
   .gate button { width:100%; }
+  /* the tour: a translucent card over the scene that teaches the controls by doing them */
+  .tour { position:absolute; left:50%; bottom:92px; transform:translateX(-50%); width:400px; max-width:calc(100% - 24px); z-index:26; padding:16px 18px 14px; border-radius:16px; color:#fff;
+    background:rgba(18,18,16,.52); border:1px solid rgba(255,255,255,.14); box-shadow:0 12px 40px rgba(0,0,0,.28); backdrop-filter:blur(14px) saturate(1.2); -webkit-backdrop-filter:blur(14px) saturate(1.2);
+    display:grid; gap:10px; animation:rise 320ms var(--ease) both; }
+  .tour.locked { pointer-events:none; }
+  .tour .t-top { display:flex; justify-content:space-between; align-items:center; font-size:12px; color:rgba(255,255,255,.7); }
+  .tour .t-dots { display:flex; gap:5px; } .tour .t-dots span { width:6px; height:6px; border-radius:50%; background:rgba(255,255,255,.3); transition:background var(--t), width var(--t); } .tour .t-dots span.on { width:16px; border-radius:3px; background:#fff; }
+  .tour h3 { font:600 17px/22px var(--sans); letter-spacing:-.01em; margin:0; display:flex; gap:8px; align-items:center; }
+  .tour h3 .done { display:none; width:20px; height:20px; border-radius:50%; background:#3fa36b; align-items:center; justify-content:center; } .tour.ok h3 .done { display:inline-flex; }
+  .tour p { margin:0; font-size:13.5px; line-height:20px; color:rgba(255,255,255,.88); }
+  .tour .t-keys { display:flex; gap:6px; flex-wrap:wrap; align-items:center; font-size:12.5px; color:rgba(255,255,255,.75); }
+  .tour .kbd { background:rgba(255,255,255,.14); color:#fff; border-color:rgba(255,255,255,.28); }
+  .tour .t-act { display:flex; justify-content:space-between; align-items:center; gap:8px; margin-top:2px; }
+  .tour .t-act button { height:32px; border-radius:9px; font-size:12.5px; }
+  .tour .t-skip { background:transparent; border-color:transparent; box-shadow:none; color:rgba(255,255,255,.7); } .tour .t-skip:hover { color:#fff; background:rgba(255,255,255,.08); }
+  .tour .t-next { background:#fff; color:#151512; border-color:#fff; }
+  .tour .t-hint { font-size:11.5px; color:rgba(255,255,255,.6); }
+  .tour-glow { animation:tourglow 1.4s ease-in-out infinite; border-radius:16px; }
+  @keyframes tourglow { 0%, 100% { box-shadow:0 0 0 0 rgba(255,255,255,0); } 50% { box-shadow:0 0 0 6px rgba(255,255,255,.35); } }
+  #stick.tour-glow { border-radius:50%; }
+  @media (max-width:640px) { .tour { bottom:84px; padding:14px 14px 12px; } .tour h3 { font-size:16px; } }
   @media (max-width:640px) { .mode { left:8px; right:8px; transform:none; max-width:none; justify-content:center; } .dock { width:100%; max-width:480px; } .dock button { min-width:0; padding:0 2px; flex:1 1 0; } .dock button span { overflow:hidden; text-overflow:ellipsis; max-width:100%; } .help-btn { top:12px; right:12px; } .mode { bottom:16px; } .welcome { bottom:88px; } .watermark { bottom:auto; top:62px; right:12px; } }
   @media (max-width:420px) { .dock button span { font-size:10.5px; } .dock .sep { margin:8px 2px; } }
 </style>
@@ -100,7 +121,7 @@
 <div id="lockup" class="panel lockup" hidden role="button" tabindex="0" aria-label="Show or hide the title"><img id="logo" alt="" hidden><span class="sep" id="lockSep" hidden></span><div class="text"><div class="title" id="name"></div><div class="mut" id="caption"></div></div></div>
 <button class="panel help-btn" id="helpBtn" hidden aria-label="How to move around"><svg class="i i-lg"><use href="#help"/></svg></button>
 <div class="pop sheet" id="helpSheet" hidden>
-  <div class="heading">Moving around</div>
+  <div class="spread"><div class="heading">Moving around</div><button class="sm ghost" id="tourAgain">Show the tour again</button></div>
   <div class="keys" id="keysDesk">
     <span><span class="kbd">Drag</span></span><span>Turn the model</span>
     <span><span class="kbd">Scroll</span></span><span>Zoom</span>
@@ -109,7 +130,9 @@
     <span><span class="kbd">E</span><span class="kbd">Q</span></span><span>Up and down in Fly</span>
     <span><span class="kbd">Esc</span></span><span>Back to Orbit</span>
     <span><span class="kbd">1</span><span class="kbd">2</span><span class="kbd">3</span></span><span>Orbit, Walk, Fly</span>
-    <span><span class="kbd">Click</span><span class="kbd">F</span></span><span>Open or close the door at the dot</span>
+    <span><span class="kbd">Click</span></span><span>Aim with the mouse; click again for the cursor</span>
+    <span><span class="kbd">Scroll</span></span><span>Step forward and back in Walk</span>
+    <span><span class="kbd">F</span></span><span>Open or close the door at the dot</span>
   </div>
   <div class="keys" id="keysTouch" hidden>
     <span><span class="kbd">1 finger</span></span><span>Turn, or look in Walk</span>
@@ -123,6 +146,12 @@
 <div id="stick" class="stick" hidden><span></span></div>
 <div id="viewsPop" class="pop views" hidden></div>
 <div id="layoutPop" class="pop views" hidden></div>
+<div class="tour" id="tour" hidden role="dialog" aria-live="polite" aria-label="How to move around">
+  <div class="t-top"><span id="tStep"></span><span class="t-dots" id="tDots"></span></div>
+  <h3><span id="tTitle"></span><span class="done"><svg class="i" style="width:13px;height:13px;stroke-width:2.4"><use href="#check"/></svg></span></h3>
+  <p id="tText"></p><div class="t-keys" id="tKeys"></div>
+  <div class="t-act"><button class="t-skip" id="tSkip">Skip the tour</button><span class="t-hint" id="tHint"></span><button class="t-next" id="tNext">Next</button></div>
+</div>
 <div class="pop welcome" id="welcome" hidden>
   <div><div class="heading" id="welcomeTitle">Take a look around</div><div class="help" id="welcomeText">Walk in at eye level, or turn the whole model from above.</div></div>
   <div class="row"><button class="accent" id="wWalk"><svg class="i"><use href="#walk"/></svg>Walk in</button><button id="wLook"><svg class="i"><use href="#orbit"/></svg>Look around</button></div>
@@ -148,12 +177,12 @@
   <button class="accent lg" id="gateBtn" hidden>Open</button>
 </div></div>
 <div id="modal" class="modal" hidden role="dialog"><div class="bar"><strong id="modalTitle"></strong><span class="row" id="modalActions"></span></div><div class="mbody" id="modalBody"></div></div>
-<script>window.WALKABLE_ICONS = ''; window.WALKABLE_STATIC = {"scene":{"version":1,"name":"1st floor FINAL","caption":"","theme":"auto","brand":{"firm":"","logo":null,"accent":"#1f4e79","invertDark":false,"watermark":true},"model":{"file":"model.glb","scale":1,"upAxis":"y","animations":true,"stats":{"triangles":8004618,"meshes":13862,"materials":229,"textures":103,"animations":0,"rawSize":[39.977,12.962,52.989],"bytes":313144652}},"start":{"pos":[50,8.172,-203.75],"yaw":0.1745,"pitch":-0.05},"player":{"eye":1.448,"speed":2.2},"light":{"preset":"interior","sunElev":64,"sunAzim":215,"sunIntensity":2,"sunColor":"#fff3e2","ambient":0.34,"envIntensity":0.6,"exposure":0.92,"shadows":true,"background":"auto","interior":true,"tone":"neutral"},"env":{"ceiling":"walk","ground":true,"grid":false,"edges":true,"garden":true},"materials":{},"plaque":null,"media":[],"views":[],"notes":[],"plan":null,"attachments":[],"layouts":null,"modes":{"default":"walk","walk":true,"fly":true,"orbit":true}},"files":"walkable/","model":"model.glb?v=mv51bixo","parts":["model.1.bin?v=mv51bixo","model.2.bin?v=mv51bixo"],"size":83727836};</script>
+<script>window.WALKABLE_ICONS = ''; window.WALKABLE_STATIC = {"scene":{"version":1,"name":"1st floor FINAL","caption":"","theme":"auto","brand":{"firm":"","logo":null,"accent":"#1f4e79","invertDark":false,"watermark":true},"model":{"file":"model.glb","scale":1,"upAxis":"y","animations":true,"stats":{"triangles":8004618,"meshes":13862,"materials":229,"textures":103,"animations":0,"rawSize":[39.977,12.962,52.989],"bytes":313144652}},"start":{"pos":[50,8.172,-203.75],"yaw":0.1745,"pitch":-0.05},"player":{"eye":1.448,"speed":2.2},"light":{"preset":"interior","sunElev":64,"sunAzim":215,"sunIntensity":2,"sunColor":"#fff3e2","ambient":0.34,"envIntensity":0.6,"exposure":0.92,"shadows":true,"background":"auto","interior":true,"tone":"neutral"},"env":{"ceiling":"walk","ground":true,"grid":false,"edges":true,"garden":true},"materials":{},"plaque":null,"media":[],"views":[],"notes":[],"plan":null,"attachments":[],"layouts":null,"modes":{"default":"walk","walk":true,"fly":true,"orbit":true}},"files":"walkable/","model":"model.glb?v=mv51iog4","parts":["model.1.bin?v=mv51iog4","model.2.bin?v=mv51iog4"],"size":83727836};</script>
 <script type="importmap">{ "imports": { "three": "https://unpkg.com/three@0.170.0/build/three.module.js", "three/addons/": "https://unpkg.com/three@0.170.0/examples/jsm/", "three-mesh-bvh": "https://unpkg.com/three-mesh-bvh@0.7.8/build/index.module.js" } }</script>
 <script type="module">
-import { Walkable } from './walkable/js/engine.js?v=mv51bixo';
-import { contrast } from './walkable/js/schema.js?v=mv51bixo';
-import { ic } from './walkable/js/api.js?v=mv51bixo';
+import { Walkable } from './walkable/js/engine.js?v=mv51iog4';
+import { contrast } from './walkable/js/schema.js?v=mv51iog4';
+import { ic } from './walkable/js/api.js?v=mv51iog4';
 const $ = (id) => document.getElementById(id);
 const STATIC = window.WALKABLE_STATIC || null;
 const slug = STATIC ? 'static' : location.pathname.split('/').filter(Boolean)[1];
@@ -204,7 +233,7 @@ async function start() {
   $('bar').style.width = '100%';
   engine.goToView(engine.frameView('iso'), false);
   buildDock(); buildMedia(); setupModes();
-  setTimeout(() => { $('arrive').classList.add('gone'); $('lockup').hidden = false; $('modeBar').hidden = false; $('helpBtn').hidden = false; $('wm').hidden = !b.watermark; welcome(); }, 250);
+  setTimeout(() => { $('arrive').classList.add('gone'); $('lockup').hidden = false; $('modeBar').hidden = false; $('helpBtn').hidden = false; $('wm').hidden = !b.watermark; welcome(); setupTour(); }, 250);
 }
 function applyBrand() {
   const b = data.brand || {}; const root = document.documentElement; const acc = b.accent || '#2F5E4E';
@@ -222,6 +251,45 @@ function welcome() {
   $('welcome').hidden = false;
   const close = () => { $('welcome').hidden = true; welcomed = true; try { sessionStorage.setItem('walkable.welcomed.' + slug, '1'); } catch {} };
   $('wWalk').onclick = () => { close(); engine.setMode('walk'); }; $('wLook').onclick = close; $('c').addEventListener('pointerdown', close, { once: true });
+}
+// ---------- the tour: four short steps, each one moves on when the visitor has done it ----------
+const tourKey = 'walkable.tour.' + (STATIC ? location.pathname : slug); let tourOn = false;
+function setupTour() {
+  let seen = false; try { seen = localStorage.getItem(tourKey) === '1'; } catch {}
+  $('tourAgain').onclick = () => { $('helpSheet').hidden = true; if (engine.mode !== 'walk' && data.modes.walk !== false) engine.setMode('walk'); startTour(); };
+  if (seen || data.modes.walk === false) return;
+  if (engine.mode === 'walk') setTimeout(startTour, 500); else engine.on('mode', function once(m) { if (m === 'walk' && !tourOn) { try { if (localStorage.getItem(tourKey) === '1') return; } catch {} setTimeout(startTour, 400); } });
+}
+function startTour() {
+  if (tourOn) return; tourOn = true; const hasDoors = !!(engine.doors && engine.doors.length), hasAuto = !!(engine.doors && engine.doors.some(d => d.auto));
+  const K = (...k) => k.map(x => `<span class="kbd">${x}</span>`).join('');
+  const steps = [
+    isTouch ? { title: 'Look around', text: 'Drag anywhere on the screen to turn your head.', keys: '', until: 'look' }
+            : { title: 'Look around', text: 'Click once on the room and the mouse aims your view. Click again to get your cursor back.', keys: K('Click') + ' aim &nbsp;' + K('Click') + ' cursor', until: 'look' },
+    isTouch ? { title: 'Walk', text: 'Put your thumb on the circle at the bottom left and push the way you want to go.', keys: '', until: 'walk', glow: 'stick' }
+            : { title: 'Walk', text: 'Walk with the keys, or scroll the mouse wheel to step forward and back. Walls stop you; stairs carry you up.', keys: K('W', 'A', 'S', 'D') + ' or ' + K('Scroll') + ' &nbsp;' + K('Shift') + ' faster', until: 'walk' },
+    hasDoors && (isTouch ? { title: 'Open doors', text: 'Tap a door to open or close it.' + (hasAuto ? ' The main entrance opens by itself as you walk up.' : ''), keys: '', until: 'door' }
+            : { title: 'Open doors', text: 'Click a door to open it. While aiming with the mouse, look at a door and press F.' + (hasAuto ? ' The main entrance opens by itself as you walk up.' : ''), keys: K('Click') + ' a door &nbsp;or&nbsp; ' + K('F'), until: 'door' }),
+    { title: 'Switch views', text: 'Orbit shows the whole floor from above, Walk puts you inside, Fly lets you float. ' + (data.plan ? 'Plan opens the floor plan. ' : '') + 'The ? at the top right has these tips any time.', keys: isTouch ? '' : K('1', '2', '3') + ' Orbit, Walk, Fly', until: null, glow: 'pill' },
+  ].filter(Boolean);
+  let i = 0, timer = null, walked = 0, lookMoves = 0; const card = $('tour');
+  const glowOff = () => ['pill', 'stick'].forEach(id => $(id).classList.remove('tour-glow'));
+  const show = () => {
+    const st = steps[i]; card.classList.remove('ok'); glowOff(); if (st.glow) $(st.glow).classList.add('tour-glow');
+    $('tStep').textContent = `Step ${i + 1} of ${steps.length}`; $('tDots').innerHTML = steps.map((_, k) => `<span class="${k === i ? 'on' : ''}"></span>`).join('');
+    $('tTitle').textContent = st.title; $('tText').textContent = st.text; $('tKeys').innerHTML = st.keys; $('tKeys').hidden = !st.keys;
+    $('tNext').textContent = i === steps.length - 1 ? 'Got it' : 'Next'; $('tHint').textContent = engine.walk.locked ? 'Enter for next' : ''; card.hidden = false; walked = 0; lookMoves = 0;
+  };
+  const done = () => { if (card.classList.contains('ok')) return; card.classList.add('ok'); clearTimeout(timer); timer = setTimeout(next, 900); };
+  const next = () => { clearTimeout(timer); if (++i >= steps.length) return finish(); show(); };
+  const finish = () => { card.hidden = true; glowOff(); tourOn = false; try { localStorage.setItem(tourKey, '1'); } catch {} removeEventListener('keydown', key, true); };
+  const key = (e) => { if (!tourOn) return; if (e.key === 'Enter') { e.preventDefault(); next(); } if (e.key === 'Escape' && !engine.walk.locked) finish(); };
+  addEventListener('keydown', key, true); $('tNext').onclick = next; $('tSkip').onclick = finish;
+  engine.on('look', () => { if (tourOn && steps[i] && steps[i].until === 'look' && ++lookMoves > 25) done(); });
+  engine.on('door', () => { if (tourOn && steps[i] && steps[i].until === 'door') done(); });
+  engine.on('lock', (l) => { card.classList.toggle('locked', !!l); $('tHint').textContent = l ? 'Enter for next' : ''; });
+  engine.onFrame(() => { if (!tourOn || !steps[i] || steps[i].until !== 'walk') return; if (engine.moveInput().lengthSq() > 0.2 && ++walked > 50) done(); });
+  show();
 }
 function buildDock() {
   buildLayouts();
@@ -265,7 +333,7 @@ let touchHintShown = false;
 function updateHint() {
   const m = engine.mode; const h = $('hint'); if (m === 'orbit') { h.hidden = true; return; }
   if (isTouch) { if (touchHintShown) return; touchHintShown = true; h.innerHTML = 'Drag to look around<small>Use the circle to walk</small>'; h.hidden = false; setTimeout(() => h.hidden = true, 2800); return; }
-  h.hidden = engine.walk.locked; const verb = engine.walk.lockFailed ? 'Drag' : 'Click'; h.innerHTML = m === 'walk' ? verb + ' to steer with the mouse<small>W A S D to walk · Click or F opens a door · Esc to stop</small>' : verb + ' to look around<small>W A S D to move · E up · Q down · Esc to stop</small>';
+  h.hidden = engine.walk.locked; const verb = engine.walk.lockFailed ? 'Drag' : 'Click'; h.innerHTML = m === 'walk' ? verb + ' to aim with the mouse<small>Click again for the cursor · W A S D or scroll to walk · F opens a door</small>' : verb + ' to look around<small>W A S D to move · E up · Q down · Esc to stop</small>';
 }
 // notes
 let notesOn = true; const markerEls = new Map(); let openCard = null;

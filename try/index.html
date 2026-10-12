@@ -19,7 +19,7 @@
 <link rel="apple-touch-icon" href="../assets/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="../css/walkable.css?v=mv51bifm">
+<link rel="stylesheet" href="../css/walkable.css?v=mv51io2m">
 <style>
   html, body { height:100%; overflow:hidden; }
   body { position:relative; height:100dvh; }
@@ -142,7 +142,9 @@
     <span><span class="kbd">E</span><span class="kbd">Q</span></span><span>Up and down in Fly</span>
     <span><span class="kbd">Esc</span></span><span>Back to Orbit</span>
     <span><span class="kbd">1</span><span class="kbd">2</span><span class="kbd">3</span></span><span>Orbit, Walk, Fly</span>
-    <span><span class="kbd">Click</span><span class="kbd">F</span></span><span>Open or close the door at the dot</span>
+    <span><span class="kbd">Click</span></span><span>Aim with the mouse; click again for the cursor</span>
+    <span><span class="kbd">Scroll</span></span><span>Step forward and back in Walk</span>
+    <span><span class="kbd">F</span></span><span>Open or close the door at the dot</span>
   </div>
   <div class="keys" id="keysTouch" hidden>
     <span><span class="kbd">1 finger</span></span><span>Turn, or look in Walk</span>
@@ -194,9 +196,9 @@
 <script>window.WALKABLE_ICONS = '';</script>
 <script type="importmap">{ "imports": { "three": "https://unpkg.com/three@0.170.0/build/three.module.js", "three/addons/": "https://unpkg.com/three@0.170.0/examples/jsm/", "three-mesh-bvh": "https://unpkg.com/three-mesh-bvh@0.7.8/build/index.module.js" } }</script>
 <script type="module">
-import { Walkable } from '../js/engine.js?v=mv51bifm';
-import { defaultScene } from '../js/schema.js?v=mv51bifm';
-import { ic, fmtBytes, toast, esc } from '../js/api.js?v=mv51bifm';
+import { Walkable } from '../js/engine.js?v=mv51io2m';
+import { defaultScene } from '../js/schema.js?v=mv51io2m';
+import { ic, fmtBytes, toast, esc } from '../js/api.js?v=mv51io2m';
 const $ = (id) => document.getElementById(id);
 const isTouch = Walkable.isTouch;
 const BASE = '../';
@@ -288,7 +290,7 @@ function updateHint() {
   const m = engine.mode; const h = $('hint'); if (m === 'orbit') { h.hidden = true; return; }
   if (isTouch) { if (touchHintShown) return; touchHintShown = true; h.innerHTML = 'Drag to look around<small>Use the circle to walk</small>'; h.hidden = false; setTimeout(() => h.hidden = true, 2800); return; }
   h.hidden = engine.walk.locked; const verb = engine.walk.lockFailed ? 'Drag' : 'Click';
-  h.innerHTML = m === 'walk' ? verb + ' to steer with the mouse<small>W A S D to walk · Click or F opens a door · Esc to stop</small>' : verb + ' to look around<small>W A S D to move · E up · Q down · Esc to stop</small>';
+  h.innerHTML = m === 'walk' ? verb + ' to aim with the mouse<small>Click again for the cursor · W A S D or scroll to walk · F opens a door</small>' : verb + ' to look around<small>W A S D to move · E up · Q down · Esc to stop</small>';
 }
 function bindEngine() {
   engine.on('mode', updateMode); engine.on('lock', updateHint); engine.on('interact', () => { if (engine.walk.lockFailed) $('hint').hidden = true; }); engine.bindJoystick($('stick'));
