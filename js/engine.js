@@ -67,6 +67,9 @@ export class Walkable {
     this.unloadModel();
     const root = gltf.scene; this.modelRoot = root; this.animations = gltf.animations || [];
     let i = 0; const seen = new Set(); let tris = 0, meshes = 0; const mats = new Set(), texs = new Set();
+    // rendering-plugin light markers (Enscape, V-Ray, Lumion) are invisible in their own renders; SketchUp exports them as solid shapes
+    const proxyName = /enscape.*(light|disk|sphere|rect|spot|point|tube|line)|vray.*light|lumion.*light|light.?proxy/i;
+    root.traverse(o => { if (o.isMesh) for (let a = o; a && a !== root; a = a.parent) if (proxyName.test(a.name || '')) { o.userData.proxy = true; o.visible = false; break; } });
     root.traverse(o => {
       if (!o.isMesh) return;
       meshes++; const g = o.geometry; tris += (g.index ? g.index.count : g.attributes.position.count) / 3;
@@ -185,12 +188,12 @@ export class Walkable {
     this.modelRoot.traverse(o => {
       if (!o.isMesh) return; const orig = o.userData.origMaterial; const om = Array.isArray(orig) ? orig[0] : orig; if (!om) return;
       const spec = ov['mesh:' + o.userData.key] || (om.name ? ov['mat:' + om.name] : null);
-      if (!spec) { o.material = orig; o.visible = true; return; }
+      if (!spec) { o.material = orig; o.visible = !o.userData.proxy; return; }
       if (!o.userData.ovMaterial) o.userData.ovMaterial = om.clone();
       const m = o.userData.ovMaterial;
       if (spec.color) { m.color.set(spec.color); if (m.map && spec.keepTexture === false) m.map = null; } else { m.color.copy(om.color); m.map = om.map; }
       if ('roughness' in m) m.roughness = spec.roughness ?? om.roughness; if ('metalness' in m) m.metalness = spec.metalness ?? om.metalness;
-      m.needsUpdate = true; o.material = m; o.visible = !spec.hidden;
+      m.needsUpdate = true; o.material = m; o.visible = !spec.hidden && !o.userData.proxy;
     });
     this.invalidateCollider();
   }
