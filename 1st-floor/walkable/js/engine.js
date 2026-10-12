@@ -43,7 +43,7 @@ export class Walkable {
     this.camera = new THREE.PerspectiveCamera(60, 1, 0.05, 500);
     this.orbit = new OrbitControls(this.camera, canvas); this.orbit.enableDamping = true; this.orbit.dampingFactor = 0.08; this.orbit.maxPolarAngle = Math.PI * 0.495;
     this.hemi = new THREE.HemisphereLight(0xffffff, 0x8a8a80, 0.5); this.scene.add(this.hemi);
-    this.sun = new THREE.DirectionalLight(0xffffff, 1.4); this.sun.castShadow = true; this.sun.shadow.mapSize.set(2048, 2048); this.sun.shadow.bias = -0.0005; this.scene.add(this.sun, this.sun.target);
+    this.sun = new THREE.DirectionalLight(0xffffff, 1.4); this.sun.castShadow = true; this.sun.shadow.mapSize.setScalar(isTouch ? 2048 : 4096); this.sun.shadow.bias = -0.0003; this.sun.shadow.normalBias = 0.02; this.scene.add(this.sun, this.sun.target);   // 4096 is fine enough for a chair's shadow on a large floor
     this.scene.add(this.modelGroup);
     this.decals = new THREE.Group(); this.decals.name = 'decals'; this.scene.add(this.decals);
 
@@ -92,6 +92,7 @@ export class Walkable {
     if (this.modelRoot) { this.modelGroup.remove(this.modelRoot); this.modelRoot = null; }
     if (this.collider) { this.scene.remove(this.collider); this.collider.geometry.dispose(); this.collider = null; }
     for (const o of [this.ceiling, this.ground, this.grid]) if (o) this.scene.remove(o);
+    if (this.garden) { this.scene.remove(this.garden); this.garden = null; }
     this.ceiling = this.ground = this.grid = null; this.edges = null; this.batched = false; this.mixer = null; this.doors = null; this.doorMeshes = []; this.select(null);
   }
   static get isIOS() { return /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1); }
@@ -109,7 +110,7 @@ export class Walkable {
     if (!this.modelRoot) return;
     this.modelGroup.updateMatrixWorld(true);
     const b = this.bounds; b.box.setFromObject(this.modelGroup); b.box.getCenter(b.center); b.box.getSize(b.size); b.radius = Math.max(b.size.x, b.size.y, b.size.z) || 1;
-    this.camera.near = Math.max(0.02, b.radius / 2000); this.camera.far = b.radius * 20; this.camera.updateProjectionMatrix();
+    this.camera.near = Math.max(0.1, b.radius / 1000); this.camera.far = Math.max(50, b.radius * 6);   // a tighter depth range: surfaces a few mm apart stop flickering this.camera.updateProjectionMatrix();
     this.doors = null; this.invalidateCollider(); this.buildHelpers(); this.placeSun();
     if (this.mixer) this.mixer.update(0);
   }
@@ -128,15 +129,38 @@ export class Walkable {
     this.ceiling.visible = e.ceiling === 'always' || (e.ceiling === 'walk' && walking);
     this.ground.visible = !!e.ground; this.grid.visible = !!e.grid && !walking;
     if (e.edges && !this.edges && this.modelRoot) this.buildEdges(); if (this.edges) this.edges.visible = !!e.edges;
+    if (e.garden && !this.garden && this.modelRoot) this.buildGarden(); if (this.garden) this.garden.visible = !!e.garden;
+    if (e.garden) { this.ground.visible = false; this.grid.visible = false; } this.applyTheme();
   }
 
   // ---------- lights, theme ----------
   applyLights() {
     const l = this.data.light; const b = this.bounds;
-    this.renderer.toneMappingExposure = l.exposure; this.hemi.intensity = l.ambient; this.scene.environmentIntensity = l.envIntensity;
+    const tone = l.tone === 'neutral' ? THREE.NeutralToneMapping : THREE.ACESFilmicToneMapping;   // Neutral keeps material colours true; ACES is filmic but washes them out
+    if (this.renderer.toneMapping !== tone) { this.renderer.toneMapping = tone; this.scene.traverse(o => { if (o.material) [].concat(o.material).forEach(m => m && (m.needsUpdate = true)); }); }
+    this.renderer.toneMappingExposure = l.exposure; this.applyInterior(); this.hemi.intensity = l.ambient; this.scene.environmentIntensity = l.envIntensity;
     this.sun.intensity = l.sunIntensity; this.sun.color.set(l.sunColor || '#ffffff'); this.sun.castShadow = !!l.shadows;
     this.renderer.shadowMap.enabled = !!l.shadows; this.renderer.shadowMap.needsUpdate = true;
     this.placeSun(); this.applyTheme();
+  }
+  // Interior light: only what stands below 2.3 m above the floor casts a shadow, so ceilings, soffits, the roof and the tops
+  // of walls let the light in like a skylight, and furniture and walls throw soft shadows on the floor. The cut is a clipping
+  // plane on the materials that is switched on only while the shadow map is drawn (see updateShadows); the picture is unchanged.
+  applyInterior() {
+    if (!this.modelRoot) return; const on = !!this.data.light.interior;
+    const eye = this.data.player.eye; const floor = this.data.start ? this.data.start.pos[1] - eye : this.bounds.box.min.y;
+    this.interiorPlane ||= new THREE.Plane(new THREE.Vector3(0, -1, 0), 0); this.interiorPlane.constant = floor + 2.3;
+    const planes = on ? [this.interiorPlane] : null;
+    this.modelRoot.traverse(o => { if (o.isMesh) for (const m of [].concat(o.material)) if (m) { m.clippingPlanes = planes; m.clipShadows = on; } });
+    this.interiorShadow = on; if (on) this.renderer.shadowMap.autoUpdate = false;
+    this.renderer.localClippingEnabled = false; this.renderer.shadowMap.needsUpdate = true;
+  }
+  // draw the shadow map on its own, with the interior cut switched on, then switch it off for the picture
+  updateShadows() {
+    const r = this.renderer; if (!this.interiorShadow || !r.shadowMap.enabled || !r.shadowMap.needsUpdate) return;
+    this._shadowRT ||= new THREE.WebGLRenderTarget(1, 1); const prev = r.getRenderTarget();
+    r.localClippingEnabled = true; r.setRenderTarget(this._shadowRT); r.render(this.scene, this.camera); r.setRenderTarget(prev); r.localClippingEnabled = false;
+    r.shadowMap.needsUpdate = false;
   }
   placeSun() {
     const l = this.data.light, b = this.bounds; const el = THREE.MathUtils.degToRad(l.sunElev), az = THREE.MathUtils.degToRad(l.sunAzim); const d = b.radius * 2;
@@ -149,6 +173,7 @@ export class Walkable {
     root.dataset.theme = this.data.theme === 'auto' ? '' : this.data.theme; root.classList.toggle('theme-dark', dark); root.classList.toggle('theme-light', !dark);
     root.classList.toggle('dark-logo-invert', !!this.data.brand.invertDark);
     const bg = this.data.light.background; this.scene.background = new THREE.Color(bg && bg !== 'auto' ? bg : (dark ? 0x141412 : 0xece9e2));
+    if (this.data.env.garden && this.garden) { this.scene.background = this.skyTexture; this.scene.fog = this.gardenFog; } else this.scene.fog = null;
     if (this.grid) { const gc = new THREE.Color(dark ? 0x3a3934 : 0xb9b3a6); (Array.isArray(this.grid.material) ? this.grid.material : [this.grid.material]).forEach(m => m.color = gc); }
     if (this.ceiling) this.ceiling.material.color.set(dark ? 0xd8d6d0 : 0xf4f3ef);
   }
@@ -211,6 +236,7 @@ export class Walkable {
   }
   stepLayout(now) {
     if (!this.layoutTweens || !this.layoutTweens.length) return;
+    this.renderer.shadowMap.needsUpdate = true;
     this.layoutTweens = this.layoutTweens.filter(({ o, p0, q0, p1, q1, t0 }) => { const k = Math.min(1, (now - t0) / 900), e = easeInOut(k); o.position.lerpVectors(p0, p1, e); o.quaternion.slerpQuaternions(q0, q1, e); o.position.y += Math.sin(e * Math.PI) * 0.06; return k < 1; });
     if (!this.layoutTweens.length) this.invalidateCollider();
   }
@@ -282,6 +308,43 @@ export class Walkable {
     const merged = BufferGeometryUtils.mergeGeometries(geos, false); geos.forEach(g => g.dispose()); merged.boundsTree = new MeshBVH(merged);
     const m = new THREE.Mesh(merged, new THREE.MeshBasicMaterial({ visible: false })); m.name = 'collider'; this.scene.add(m); return m;
   }
+  // ---------- surroundings: a lawn, trees and a sky, so windows look out on a garden instead of a grey void ----------
+  buildGarden() {
+    if (this.garden || !this.modelRoot) return; const b = this.bounds; const eye = this.data.player.eye;
+    const floor = this.data.start ? this.data.start.pos[1] - eye : b.box.min.y;
+    const groundY = b.box.min.y < floor - 1.5 ? b.box.min.y : floor - 3.6;   // a storey below this floor unless the model reaches lower
+    const g = new THREE.Group(); g.name = 'garden'; const R = Math.max(60, b.radius * 4);
+    let seed = 7; const rnd = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
+    // lawn: a soft grass texture drawn on a canvas
+    const c = document.createElement('canvas'); c.width = c.height = 256; const x = c.getContext('2d'); x.fillStyle = '#5f7a49'; x.fillRect(0, 0, 256, 256);
+    for (let i = 0; i < 9000; i++) { const t = rnd(); x.fillStyle = `hsl(${78 + t * 30},${22 + rnd() * 16}%,${26 + rnd() * 14}%)`; x.fillRect(rnd() * 256, rnd() * 256, 1 + rnd() * 2, 2 + rnd() * 4); }
+    const grass = new THREE.CanvasTexture(c); grass.wrapS = grass.wrapT = THREE.RepeatWrapping; grass.repeat.set(R / 3, R / 3); grass.colorSpace = THREE.SRGBColorSpace; grass.anisotropy = 8;
+    const lawn = new THREE.Mesh(new THREE.CircleGeometry(R, 64), new THREE.MeshStandardMaterial({ map: grass, roughness: 1, color: 0xffffff }));
+    lawn.rotation.x = -Math.PI / 2; lawn.position.set(b.center.x, groundY, b.center.z); lawn.receiveShadow = true; g.add(lawn);
+    // trees and shrubs, kept clear of the building's footprint
+    const box = b.box.clone().expandByVector(new THREE.Vector3(5, 0, 5)); const spots = [];
+    for (let i = 0; spots.length < 70 && i < 4000; i++) { const a = rnd() * Math.PI * 2, d = b.radius * 0.6 + rnd() * R * 0.55; const px = b.center.x + Math.cos(a) * d, pz = b.center.z + Math.sin(a) * d;
+      if (px > box.min.x && px < box.max.x && pz > box.min.z && pz < box.max.z) continue; if (spots.some(p => Math.hypot(p[0] - px, p[1] - pz) < 4)) continue; spots.push([px, pz]); }
+    const trunk = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.18, 0.28, 1, 7), new THREE.MeshStandardMaterial({ color: 0x6b5442, roughness: 1 }), spots.length);
+    const crown = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1, 1), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.95, flatShading: true }), spots.length * 2);
+    const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), col = new THREE.Color(); let k = 0;
+    spots.forEach(([px, pz], i) => { const h = 5 + rnd() * 6, cr = 1.8 + rnd() * 1.8;
+      m4.compose(new THREE.Vector3(px, groundY + h * 0.35, pz), q, new THREE.Vector3(1, h * 0.7, 1)); trunk.setMatrixAt(i, m4);
+      for (let j = 0; j < 2; j++) { const s2 = cr * (j ? 0.75 : 1); m4.compose(new THREE.Vector3(px + (rnd() - 0.5) * 1.2, groundY + h * (j ? 0.95 : 0.78), pz + (rnd() - 0.5) * 1.2), new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), rnd() * 6), new THREE.Vector3(s2, s2 * 0.85, s2));
+        crown.setMatrixAt(k, m4); crown.setColorAt(k, col.setHSL(0.23 + rnd() * 0.08, 0.26 + rnd() * 0.16, 0.24 + rnd() * 0.12)); k++; } });
+    const shrubs = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1, 1), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, flatShading: true }), 90); let n = 0;
+    for (let i = 0; n < 90 && i < 3000; i++) { const a = rnd() * Math.PI * 2, d = b.radius * 0.55 + rnd() * R * 0.4; const px = b.center.x + Math.cos(a) * d, pz = b.center.z + Math.sin(a) * d;
+      if (px > box.min.x - 1 && px < box.max.x + 1 && pz > box.min.z - 1 && pz < box.max.z + 1) continue; const s3 = 0.6 + rnd() * 0.9;
+      m4.compose(new THREE.Vector3(px, groundY + s3 * 0.5, pz), q, new THREE.Vector3(s3 * 1.3, s3, s3 * 1.3)); shrubs.setMatrixAt(n, m4); shrubs.setColorAt(n, col.setHSL(0.26 + rnd() * 0.06, 0.28, 0.22 + rnd() * 0.08)); n++; }
+    shrubs.count = n; for (const im of [trunk, crown, shrubs]) { im.instanceMatrix.needsUpdate = true; if (im.instanceColor) im.instanceColor.needsUpdate = true; im.castShadow = false; im.receiveShadow = true; g.add(im); }
+    // sky: blue overhead, pale at the horizon, and a light haze that hides where the lawn ends
+    const sc = document.createElement('canvas'); sc.width = 4; sc.height = 256; const sx = sc.getContext('2d'); const gr = sx.createLinearGradient(0, 0, 0, 256);
+    gr.addColorStop(0, '#7fb2df'); gr.addColorStop(0.45, '#bcd8ef'); gr.addColorStop(0.5, '#e6eef2'); gr.addColorStop(1, '#cfdcc4'); sx.fillStyle = gr; sx.fillRect(0, 0, 4, 256);
+    this.skyTexture = new THREE.CanvasTexture(sc); this.skyTexture.mapping = THREE.EquirectangularReflectionMapping; this.skyTexture.colorSpace = THREE.SRGBColorSpace;
+    this.gardenFog = new THREE.Fog(0xe2ebee, R * 0.55, R * 1.05);
+    this.scene.add(g); this.garden = g;
+  }
+
   // ---------- client link: fast drawing on weak laptops, and corner lines ----------
   // Studio keeps every part separate so materials can be edited. The client link does not need that, so parts that share a
   // material and an 8 m cell are drawn as one: 13,000 draws become about a thousand. The file itself is untouched.
@@ -289,6 +352,7 @@ export class Walkable {
     if (!this.modelRoot || this.batched) return; this.batched = true; const root = this.modelRoot;
     this.findDoors(); if (!this.collider) this.collider = this.buildCollider();   // doors and collision come from the original parts
     if (this.data.env.edges) this.buildEdges();
+    this.fixTwinFaces();
     if (this.data.layouts) return;   // layouts move named parts, so they stay separate
     const animated = new Set(); for (const c of this.animations || []) for (const t of c.tracks) animated.add(t.name.split('.')[0]);
     root.updateMatrixWorld(true); const inv = root.matrixWorld.clone().invert(); const buckets = new Map(); const tmp = new THREE.Box3(), cv = new THREE.Vector3();
@@ -298,7 +362,7 @@ export class Walkable {
       for (let a = o; a && a !== root; a = a.parent) if (animated.has(a.name)) return;
       const g = o.geometry; if (g.morphAttributes && Object.keys(g.morphAttributes).length) return;
       const sig = Object.keys(g.attributes).sort().map(k => { const at = g.attributes[k]; return k + at.itemSize + at.array.constructor.name + (at.normalized ? 'n' : '') + (at.isInterleavedBufferAttribute ? 'i' : ''); }).join(',');
-      tmp.setFromObject(o).getCenter(cv); const key = o.material.uuid + '|' + sig + '|' + (g.index ? 1 : 0) + '|' + Math.floor(cv.x / 8) + ',' + Math.floor(cv.y / 8) + ',' + Math.floor(cv.z / 8);
+      tmp.setFromObject(o).getCenter(cv); const key = o.material.uuid + '|' + sig + '|' + (g.index ? 1 : 0) + '|' + (o.castShadow ? 'c' : 'n') + '|' + Math.floor(cv.x / 8) + ',' + Math.floor(cv.y / 8) + ',' + Math.floor(cv.z / 8);
       let b = buckets.get(key); if (!b) buckets.set(key, b = { mat: o.material, list: [] }); b.list.push(o);
     });
     let draws = 0;
@@ -312,9 +376,20 @@ export class Walkable {
     }
     // the parts left (doors, one-offs) still point into the downloaded file; give them their own copies so the file can be freed
     root.traverse(o => { if (o.isMesh && o.name !== 'batch' && !o.isSkinnedMesh) { const g = o.geometry.clone(); g.computeBoundingSphere(); o.geometry = g; } });
-    this.renderer.shadowMap.autoUpdate = false; this.renderer.shadowMap.needsUpdate = true;   // the room does not move: draw shadows once
+    this.applyInterior(); this.renderer.shadowMap.autoUpdate = false; this.renderer.shadowMap.needsUpdate = true;   // the room does not move: draw shadows once
     this.adaptive = { pr: Math.min(devicePixelRatio, 2), max: Math.min(devicePixelRatio, 2), t: 0, n: 0, good: 0 }; this.renderer.setPixelRatio(this.adaptive.pr);
     this.emit('optimized', { draws });
+  }
+  // SketchUp exports a two-faced sheet (a card's print and its cork back, a poster and its backing) as two coincident faces.
+  // Drawn two-sided, they flicker against each other. For such pairs each side is drawn from its own face only.
+  fixTwinFaces() {
+    const groups = new Map(), bb = new THREE.Box3(), sz = new THREE.Vector3(); const q = (v) => Math.round(v * 400);   // 2.5 mm grid
+    this.modelRoot.traverse(o => { if (!o.isMesh || o.userData.door || Array.isArray(o.material)) return; bb.setFromObject(o); bb.getSize(sz); if (Math.min(sz.x, sz.y, sz.z) > 0.02) return;
+      const k = [bb.min.x, bb.min.y, bb.min.z, bb.max.x, bb.max.y, bb.max.z].map(q).join(','); let g = groups.get(k); if (!g) groups.set(k, g = []); g.push(o); });
+    const single = new Map(); let fixed = 0;
+    for (const g of groups.values()) { if (g.length < 2 || new Set(g.map(o => o.material.uuid)).size < 2) continue;
+      for (const o of g) { if (o.material.side !== THREE.DoubleSide) continue; let m = single.get(o.material.uuid); if (!m) { m = o.material.clone(); m.side = THREE.FrontSide; single.set(o.material.uuid, m); } o.material = m; fixed++; } }
+    this.twinsFixed = fixed;
   }
   // once a geometry is on the graphics chip, the browser's copy is only needed for picking, which batches do not use
   static freeAfterUpload(g) { const drop = function () { this.array = null; }; for (const k of Object.keys(g.attributes)) g.attributes[k].onUpload(drop); if (g.index) g.index.onUpload(drop); }
@@ -572,7 +647,7 @@ export class Walkable {
 
   snapshot(w = 480, h = 320) {
     const r = this.renderer; const old = r.getSize(new THREE.Vector2()); const pr = r.getPixelRatio(); const asp = this.camera.aspect;
-    r.setPixelRatio(1); r.setSize(w, h, false); this.camera.aspect = w / h; this.camera.updateProjectionMatrix(); r.render(this.scene, this.camera);
+    r.setPixelRatio(1); r.setSize(w, h, false); this.camera.aspect = w / h; this.camera.updateProjectionMatrix(); this.updateShadows(); r.render(this.scene, this.camera);
     const url = this.canvas.toDataURL('image/jpeg', 0.82);
     r.setPixelRatio(pr); r.setSize(old.x, old.y, false); this.camera.aspect = asp; this.camera.updateProjectionMatrix(); return url;
   }
@@ -587,6 +662,6 @@ export class Walkable {
     if (this.mode === 'walk') { for (let i = 0; i < 3; i++) this.walkStep(dt / 3); } else if (this.mode === 'fly') this.flyStep(dt); else this.orbit.update();
     if (this.selectionHelper) this.selectionHelper.update();
     for (const f of this.frameHooks) f();
-    r.render(this.scene, this.camera);
+    this.updateShadows(); r.render(this.scene, this.camera);
   }
 }
