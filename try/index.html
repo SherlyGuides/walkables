@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Try it with your own model · walkable</title>
+<meta name="description" content="Drop a GLB and walk through it in your browser. Nothing is uploaded. Set the start, the light and the eye height, then download the result as a folder you can host anywhere.">
+<link rel="canonical" href="https://walkables.in/try/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="walkable">
+<meta property="og:title" content="Try it with your own model · walkable">
+<meta property="og:description" content="Drop a GLB and walk through it in your browser. Nothing is uploaded. Set the start, the light and the eye height, then download the result as a folder you can host anywhere.">
+<meta property="og:url" content="https://walkables.in/try/">
+<meta property="og:image" content="https://walkables.in/assets/og.jpg">
+<meta name="theme-color" content="#F3F1EC" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#11110F" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%231B1A16%22%20stroke-width%3D%222.2%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cstyle%3E%40media%20(prefers-color-scheme%3A%20dark)%7Bpath%7Bstroke%3A%23EDEBE5%7Dcircle%7Bfill%3A%2386BBA4%7D%7D%3C%2Fstyle%3E%3Cpath%20d%3D%22M9.5%2020.5H7.5a4%204%200%200%201-4-4v-9a4%204%200%200%201%204-4h9a4%204%200%200%201%204%204v9a4%204%200%200%201-4%204h-2%22%2F%3E%3Cpath%20d%3D%22M12%2021v-4.5a4.5%204.5%200%200%200-4.5-4.5%22%2F%3E%3Ccircle%20cx%3D%228.5%22%20cy%3D%228.5%22%20r%3D%222.2%22%20fill%3D%22%232F5E4E%22%20stroke%3D%22none%22%2F%3E%3C%2Fsvg%3E%0A" type="image/svg+xml">
+<link rel="icon" href="../assets/favicon-32.png" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="../assets/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="../css/walkable.css?v=mv4v1kcl">
+<style>
+  html, body { height:100%; overflow:hidden; }
+  body { position:relative; height:100dvh; }
+  .arrive { position:absolute; inset:0; z-index:40; background:var(--bg); display:flex; align-items:center; justify-content:center; padding:24px; overflow:auto; transition:opacity 500ms var(--ease), visibility 500ms; }
+  .arrive.gone { opacity:0; visibility:hidden; }
+  .arrive .in { width:540px; max-width:100%; display:grid; gap:20px; padding:28px; }
+  .arrive h1 { font:600 32px/1.1 var(--sans); letter-spacing:-.03em; text-wrap:balance; }
+  .drop { display:grid; justify-items:center; gap:8px; padding:36px 24px; border:1.5px dashed var(--line-2); border-radius:var(--r-l); text-align:center; color:var(--mut); cursor:pointer; transition:border-color var(--t), background var(--t), transform var(--t) var(--ease); }
+  .drop:hover, .drop:focus-visible, body.over .drop { border-color:var(--accent); background:var(--accent-soft); color:var(--fg); }
+  body.over .drop { transform:scale(1.01); }
+  .drop .i-xl { color:var(--accent); margin-bottom:6px; }
+  .drop b { font:600 18px/1.3 var(--sans); color:var(--fg); }
+  .loadbox { display:grid; gap:8px; }
+  .lockup .wm { display:inline-flex; align-items:center; gap:7px; font-weight:600; letter-spacing:-.02em; font-size:15px; }
+  .lockup .wm .i { width:20px; height:20px; }
+  .lockup .text .mut { font-size:12px; } .lockup .text .title { font:600 15px/20px var(--sans); letter-spacing:-.01em; }
+  .help-btn, .tweak-btn { position:absolute; top:16px; z-index:20; height:40px; border-radius:12px; }
+  .help-btn { right:16px; width:40px; padding:0; }
+  .tweak-btn { right:64px; display:none; }
+  .sheet { position:absolute; top:64px; right:16px; width:300px; max-width:calc(100% - 32px); padding:16px; z-index:30; display:grid; gap:12px; animation:rise 200ms var(--ease); }
+  .keys { display:grid; grid-template-columns:auto 1fr; gap:8px 12px; align-items:center; font-size:13px; }
+  .keys > span:nth-child(odd) { display:flex; gap:3px; }
+  .dock button { flex-direction:column; height:48px; gap:3px; padding:0 12px; font-size:11.5px; min-width:58px; }
+  .dock button .i { width:18px; height:18px; }
+  .views { position:absolute; left:50%; bottom:88px; transform:translateX(-50%); padding:6px; display:grid; gap:2px; min-width:220px; max-width:calc(100% - 32px); z-index:25; animation:rise 200ms var(--ease); }
+  .views button { justify-content:flex-start; border:0; box-shadow:none; background:transparent; height:38px; }
+  .views button:hover { background:color-mix(in srgb, var(--fg) 7%, transparent); }
+  .views button.cur { color:var(--fg); font-weight:600; } .views button.cur::after { content:""; margin-left:auto; width:6px; height:6px; border-radius:50%; background:var(--accent); }
+  .side { position:absolute; top:72px; right:16px; bottom:88px; width:320px; z-index:25; display:grid; grid-template-rows:auto 1fr; overflow:hidden; animation:rise 240ms var(--ease); }
+  .side .head { display:flex; justify-content:space-between; align-items:center; padding:10px 10px 10px 16px; border-bottom:1px solid var(--line); }
+  .side .body { overflow:auto; padding:2px 16px 16px; }
+  .side .group { padding:16px 0; border-top:1px solid var(--line); display:grid; gap:12px; } .side .group:first-child { border-top:0; }
+  .side h3 { font-size:15px; font-weight:600; letter-spacing:-.005em; }
+  .stats { display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; } .stats div { background:var(--sunk); border-radius:var(--r-s); padding:8px 10px; display:grid; gap:1px; min-width:0; } .stats b { font-size:13.5px; font-weight:600; font-variant-numeric:tabular-nums; letter-spacing:-.01em; } .stats span { font-size:11px; color:var(--mut); }
+  .warnlist { display:grid; gap:6px; } .warnlist:empty { display:none; }
+  .next { gap:8px; } .next h3 { margin-bottom:4px; } .next button, .next a { width:100%; }
+  .badge.tag { background:var(--accent-soft); color:var(--accent); }
+  @media (max-width:900px) {
+    .side { top:auto; left:8px; right:8px; bottom:84px; width:auto; max-height:min(56dvh, 520px); }
+    .tweak-btn { display:inline-flex; }
+    .lockup .text, .lockup .sep { display:none; }
+  }
+  @media (max-width:640px) { .mode { left:8px; right:8px; transform:none; max-width:none; justify-content:center; } .dock { width:100%; max-width:480px; } .dock button { min-width:0; padding:0 2px; flex:1 1 0; } .dock button span { overflow:hidden; text-overflow:ellipsis; max-width:100%; } .help-btn { top:12px; right:12px; } .tweak-btn { top:12px; right:60px; } .mode { bottom:16px; } .arrive .in { padding:20px; } .arrive h1 { font-size:28px; } }
+  @media (max-width:420px) { .dock button span { font-size:10.5px; } .dock .sep { margin:8px 2px; } }
+</style>
+</head>
+<body>
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">
+<symbol id="mark" viewBox="0 0 24 24"><path d="M9.5 20.5H7.5a4 4 0 0 1-4-4v-9a4 4 0 0 1 4-4h9a4 4 0 0 1 4 4v9a4 4 0 0 1-4 4h-2"/><path d="M12 21v-4.5a4.5 4.5 0 0 0-4.5-4.5"/><circle cx="8.5" cy="8.5" r="2" fill="currentColor" stroke="none"/></symbol>
+<symbol id="cube" viewBox="0 0 24 24"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z"/><path d="M4 7.5l8 4.5 8-4.5M12 12v9"/></symbol>
+<symbol id="orbit" viewBox="0 0 24 24"><circle cx="12" cy="12" r="2.5"/><ellipse cx="12" cy="12" rx="9.5" ry="4.5" transform="rotate(-20 12 12)"/></symbol>
+<symbol id="walk" viewBox="0 0 24 24"><circle cx="13.5" cy="4.5" r="1.6"/><path d="M10 21l2.2-5.5 2.8 2.5v3M12.2 15.5l1.3-5.5M13.5 10l3 2.5 2 .5M13.5 10l-3.5 1.5-1.5 3"/></symbol>
+<symbol id="fly" viewBox="0 0 24 24"><path d="M3.5 11L20.5 4l-7 16.5-2.4-7.1L3.5 11z"/><path d="M11.1 13.4L20.5 4"/></symbol>
+<symbol id="bookmark" viewBox="0 0 24 24"><path d="M6.5 3.5h11v17l-5.5-3.8-5.5 3.8v-17z"/></symbol>
+<symbol id="plan" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="1.5"/><path d="M3.5 10.5h6.5v10M14 3.5v6.5h6.5M14 14h6.5"/></symbol>
+<symbol id="pin" viewBox="0 0 24 24"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.2"/></symbol>
+<symbol id="clip" viewBox="0 0 24 24"><path d="M20 11.5l-8.2 8.2a5 5 0 0 1-7.1-7.1L13 4.3a3.3 3.3 0 0 1 4.7 4.7l-8.3 8.3a1.7 1.7 0 0 1-2.4-2.4l7.5-7.5"/></symbol>
+<symbol id="sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M2.5 12h2M19.5 12h2M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/></symbol>
+<symbol id="brand" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 15l2.8-6 2.7 6M7.9 13.2h3.8M16 9v6"/></symbol>
+<symbol id="layers" viewBox="0 0 24 24"><path d="M12 3.5l9 5-9 5-9-5 9-5z"/><path d="M3 13l9 5 9-5"/></symbol>
+<symbol id="link" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></symbol>
+<symbol id="upload" viewBox="0 0 24 24"><path d="M12 15.5V4M7 8.5L12 4l5 4.5"/><path d="M4 15v3.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V15"/></symbol>
+<symbol id="plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+<symbol id="check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+<symbol id="close" viewBox="0 0 24 24"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/></symbol>
+<symbol id="back" viewBox="0 0 24 24"><path d="M14.5 5.5L8 12l6.5 6.5"/></symbol>
+<symbol id="down" viewBox="0 0 24 24"><path d="M6 9.5l6 6 6-6"/></symbol>
+<symbol id="arrow" viewBox="0 0 24 24"><path d="M5 12h14M13.5 6.5L19 12l-5.5 5.5"/></symbol>
+<symbol id="copy" viewBox="0 0 24 24"><rect x="8.5" y="8.5" width="11.5" height="11.5" rx="2"/><path d="M15.5 8.5V5.5A1.5 1.5 0 0 0 14 4H5.5A1.5 1.5 0 0 0 4 5.5V14a1.5 1.5 0 0 0 1.5 1.5h3"/></symbol>
+<symbol id="external" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-8.5 8.5"/><path d="M18 14v4.5a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 4 18.5v-11A1.5 1.5 0 0 1 5.5 6H10"/></symbol>
+<symbol id="eye" viewBox="0 0 24 24"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="2.8"/></symbol>
+<symbol id="swatch" viewBox="0 0 24 24"><path d="M12 3.5a8.5 8.5 0 0 0 0 17c1.4 0 2-1 2-2s-.8-1.5-.8-2.5 1-1.8 2-1.8h2.3c1.7 0 3-1.2 3-3.2 0-4.2-3.8-7.5-8.5-7.5z"/><circle cx="7.8" cy="11" r="1.1"/><circle cx="10.5" cy="7.3" r="1.1"/><circle cx="15" cy="7.8" r="1.1"/></symbol>
+<symbol id="cursor" viewBox="0 0 24 24"><path d="M5.5 3.5l13 6.5-5.7 1.9-2 5.6L5.5 3.5z"/><path d="M13 12l5.5 5.5"/></symbol>
+<symbol id="image" viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><circle cx="9" cy="10" r="1.8"/><path d="M20.5 15.5l-4.5-4.5-8.5 8.5"/></symbol>
+<symbol id="frame" viewBox="0 0 24 24"><rect x="4" y="7" width="16" height="12" rx="1.5"/><path d="M8.5 3.5L12 7l3.5-3.5M8 13h8"/></symbol>
+<symbol id="target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7.5"/><circle cx="12" cy="12" r="2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></symbol>
+<symbol id="help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.4a2.5 2.5 0 1 1 3.9 2.1c-.9.6-1.5 1.1-1.5 2.4M12 17h.01"/></symbol>
+<symbol id="trash" viewBox="0 0 24 24"><path d="M4.5 7h15M10 11v5.5M14 11v5.5M6.5 7l.8 12a1.5 1.5 0 0 0 1.5 1.5h6.4a1.5 1.5 0 0 0 1.5-1.5l.8-12M9.5 7V4.5h5V7"/></symbol>
+<symbol id="lock" viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8.5 10.5V7.5a3.5 3.5 0 0 1 7 0v3"/></symbol>
+<symbol id="clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></symbol>
+<symbol id="users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.3"/><path d="M3 19.5a6 6 0 0 1 12 0M15.5 4.8a3.3 3.3 0 0 1 0 6.4M17.5 14a6 6 0 0 1 3.5 5.5"/></symbol>
+<symbol id="refresh" viewBox="0 0 24 24"><path d="M19.5 11.5a7.5 7.5 0 1 0-2.2 5.3M19.5 4.5v7h-7"/></symbol>
+<symbol id="phone" viewBox="0 0 24 24"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></symbol>
+<symbol id="settings" viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></symbol>
+<symbol id="play" viewBox="0 0 24 24"><path d="M7.5 4.5l12 7.5-12 7.5v-15z"/></symbol>
+<symbol id="ruler" viewBox="0 0 24 24"><path d="M3.5 16.5l13-13 4 4-13 13-4-4z"/><path d="M7 13l2 2M10 10l2 2M13 7l2 2"/></symbol>
+
+<symbol id="menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+<symbol id="mail" viewBox="0 0 24 24"><rect x="3.5" y="5.5" width="17" height="13" rx="2"/><path d="M4 7l8 6 8-6"/></symbol>
+<symbol id="download" viewBox="0 0 24 24"><path d="M12 4v11.5M7 11l5 5 5-5"/><path d="M4 15v3.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V15"/></symbol>
+<symbol id="file" viewBox="0 0 24 24"><path d="M13.5 3.5h-7A1.5 1.5 0 0 0 5 5v14a1.5 1.5 0 0 0 1.5 1.5h11A1.5 1.5 0 0 0 19 19V9l-5.5-5.5z"/><path d="M13.5 3.5V9H19"/></symbol>
+<symbol id="globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.5 2.5 3.5 5.5 3.5 8.5s-1 6-3.5 8.5c-2.5-2.5-3.5-5.5-3.5-8.5s1-6 3.5-8.5z"/></symbol>
+<symbol id="shield" viewBox="0 0 24 24"><path d="M12 3.5l7 2.5v5.5c0 4.2-2.8 7.6-7 9-4.2-1.4-7-4.8-7-9V6l7-2.5z"/><path d="M9 12l2 2 4-4"/></symbol>
+<symbol id="bolt" viewBox="0 0 24 24"><path d="M13 3L5 13.5h6L10.5 21 19 10.5h-6L13 3z"/></symbol>
+<symbol id="quote" viewBox="0 0 24 24"><path d="M9.5 7.5C6.5 8 5 10 5 13v3.5h4.5V12H7.5c0-1.5.8-2.5 2-3V7.5zM19 7.5c-3 .5-4.5 2.5-4.5 5.5v3.5H19V12h-2c0-1.5.8-2.5 2-3V7.5z"/></symbol>
+<symbol id="chat" viewBox="0 0 24 24"><path d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v7a2.5 2.5 0 0 1-2.5 2.5H10l-5 4v-4A2.5 2.5 0 0 1 4 13.5v-7z"/></symbol>
+
+</svg>
+
+<canvas id="c" class="canvas" aria-label="Your 3D model"></canvas>
+<div id="arrive" class="arrive"><div class="in pop">
+  <div class="spread"><a href="../" class="wordmark" aria-label="walkable home"><svg class="i"><use href="#mark"/></svg>walkable</a><span class="badge tag"><svg class="i" style="width:12px;height:12px"><use href="#shield"/></svg>Stays in your browser</span></div>
+  <div class="stack" style="gap:8px"><h1>Walk your own model</h1><p class="help" style="font-size:14px;line-height:21px">Drop a GLB here. It is read by your browser and never uploaded. Walk it, set the start and the light, then download it as a folder you can host anywhere.</p></div>
+  <div class="drop" id="drop" role="button" tabindex="0" aria-label="Choose a GLB file"><svg class="i i-xl"><use href="#upload"/></svg><b>Drop a GLB, or click to choose</b><span class="small">Single-file GLB, up to 150 MB</span></div>
+  <input id="file" type="file" accept=".glb,.gltf,model/gltf-binary" hidden>
+  <div class="loadbox" id="loadbox" hidden><div class="spread small"><span id="loadLabel">Opening</span><span class="mut" id="pct"></span></div><div class="progress"><span id="bar"></span></div></div>
+  <div class="row"><button id="sample"><svg class="i"><use href="#cube"/></svg>Open the sample room instead</button><a class="btn ghost" href="../guides/">Need a GLB? Export guides</a></div>
+</div></div>
+
+<div id="lockup" class="panel lockup" hidden><a class="wm" href="../" title="walkable home"><svg class="i"><use href="#mark"/></svg>walkable</a><span class="sep"></span><div class="text"><div class="title" id="name"></div><div class="mut">In your browser · not uploaded</div></div></div>
+<button class="panel tweak-btn" id="tweakBtn" hidden><svg class="i"><use href="#settings"/></svg>Tweak</button>
+<button class="panel help-btn" id="helpBtn" hidden aria-label="How to move around"><svg class="i i-lg"><use href="#help"/></svg></button>
+<div class="pop sheet" id="helpSheet" hidden>
+  <div class="heading">Moving around</div>
+  <div class="keys" id="keysDesk">
+    <span><span class="kbd">Drag</span></span><span>Turn the model</span>
+    <span><span class="kbd">Scroll</span></span><span>Zoom</span>
+    <span><span class="kbd">W</span><span class="kbd">A</span><span class="kbd">S</span><span class="kbd">D</span></span><span>Walk</span>
+    <span><span class="kbd">Shift</span></span><span>Walk faster</span>
+    <span><span class="kbd">E</span><span class="kbd">Q</span></span><span>Up and down in Fly</span>
+    <span><span class="kbd">Esc</span></span><span>Back to Orbit</span>
+    <span><span class="kbd">1</span><span class="kbd">2</span><span class="kbd">3</span></span><span>Orbit, Walk, Fly</span>
+  </div>
+  <div class="keys" id="keysTouch" hidden>
+    <span><span class="kbd">1 finger</span></span><span>Turn, or look in Walk</span>
+    <span><span class="kbd">2 fingers</span></span><span>Pinch to zoom</span>
+    <span><span class="kbd">Joystick</span></span><span>Move in Walk and Fly</span>
+  </div>
+</div>
+<div id="hint" class="center-hint" hidden></div>
+<div id="crosshair" class="crosshair" hidden></div>
+<div id="stick" class="stick" hidden><span></span></div>
+<div id="viewsPop" class="pop views" hidden></div>
+<div class="mode" id="modeBar" hidden><div class="pill dock" id="pill">
+  <button data-mode="orbit"><svg class="i"><use href="#orbit"/></svg><span>Orbit</span></button>
+  <button data-mode="walk"><svg class="i"><use href="#walk"/></svg><span>Walk</span></button>
+  <button data-mode="fly"><svg class="i"><use href="#fly"/></svg><span>Fly</span></button>
+  <span class="sep"></span>
+  <button id="cViews"><svg class="i"><use href="#bookmark"/></svg><span>Views</span></button>
+  <button id="cStart"><svg class="i"><use href="#target"/></svg><span>Set start</span></button>
+  <button id="cTweak"><svg class="i"><use href="#settings"/></svg><span>Tweak</span></button>
+</div></div>
+
+<aside class="pop side" id="side" hidden aria-label="Tweak the scene">
+  <div class="head"><span class="heading">Tweak</span><button class="ghost sm icon-btn" id="sideClose" aria-label="Close"><svg class="i"><use href="#close"/></svg></button></div>
+  <div class="body">
+    <div class="group"><h3>Model</h3>
+      <div class="stats" id="stats"></div><div class="warnlist" id="warns"></div>
+      <div class="field"><span class="label">Units in the file</span><div class="seg full" id="units"><button data-v="0.001">mm</button><button data-v="0.01">cm</button><button data-v="0.0254">in</button><button data-v="1">m</button></div><span class="help" id="unitNote"></span></div>
+      <div class="field"><span class="label">Up axis</span><div class="seg full" id="up"><button data-v="y">Y up</button><button data-v="z">Z up</button></div></div>
+    </div>
+    <div class="group"><h3>Walking</h3>
+      <div class="range"><div class="spread"><span>Eye height</span><span id="eyeV">1.60 m</span></div><input id="eye" type="range" min="1.2" max="2" step="0.05" value="1.6" aria-label="Eye height"></div>
+      <div class="range"><div class="spread"><span>Walking speed</span><span id="speedV">2.2 m/s</span></div><input id="speed" type="range" min="1" max="4" step="0.1" value="2.2" aria-label="Walking speed"></div>
+      <div class="help">Walk to where your client should start, then press Set start in the dock.</div>
+    </div>
+    <div class="group"><h3>Light</h3>
+      <div class="seg full" id="preset"><button data-v="daylight">Daylight</button><button data-v="overcast">Overcast</button><button data-v="evening">Evening</button><button data-v="studio">Studio</button></div>
+      <label class="check"><input type="checkbox" id="shadows" checked>Shadows</label>
+      <div class="field"><span class="label">Ceiling</span><div class="seg full" id="ceiling"><button data-v="walk">While walking</button><button data-v="always">Always</button><button data-v="off">Off</button></div></div>
+    </div>
+    <div class="group next"><h3>Next</h3>
+      <a class="btn primary" href="../early-access/" id="eaLink"><svg class="i"><use href="#link"/></svg>Get a link for this model</a>
+      <button id="dl"><svg class="i"><use href="#download"/></svg>Download as a folder</button>
+      <button class="ghost" id="replace"><svg class="i"><use href="#upload"/></svg>Open another model</button>
+      <div class="help">The folder opens from any web host, yours or a client's. It carries this model, your start point and these settings.</div>
+    </div>
+  </div>
+</aside>
+
+<script>window.WALKABLE_ICONS = '';</script>
+<script type="importmap">{ "imports": { "three": "https://unpkg.com/three@0.170.0/build/three.module.js", "three/addons/": "https://unpkg.com/three@0.170.0/examples/jsm/", "three-mesh-bvh": "https://unpkg.com/three-mesh-bvh@0.7.8/build/index.module.js" } }</script>
+<script type="module">
+import { Walkable } from '../js/engine.js?v=mv4v1kcl';
+import { defaultScene } from '../js/schema.js?v=mv4v1kcl';
+import { ic, fmtBytes, toast, esc } from '../js/api.js?v=mv4v1kcl';
+const $ = (id) => document.getElementById(id);
+const isTouch = Walkable.isTouch;
+const BASE = '../';
+const SAMPLE_URL = BASE + 'room/walkable/model.js';
+const SAMPLE_START = { pos: [9.3, 1.6, -9.3], yaw: Math.PI, pitch: 0 };
+$('keysDesk').hidden = isTouch; $('keysTouch').hidden = !isTouch;
+let engine = null, scene = null, bytes = null;
+
+// ---------- opening a file
+const input = $('file'), drop = $('drop');
+drop.onclick = () => input.click();
+drop.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); input.click(); } };
+input.onchange = () => { const f = input.files[0]; input.value = ''; if (f) openFile(f); };
+$('replace').onclick = () => input.click();
+for (const ev of ['dragenter', 'dragover']) document.addEventListener(ev, (e) => { e.preventDefault(); document.body.classList.add('over'); });
+document.addEventListener('dragleave', (e) => { if (!e.relatedTarget) document.body.classList.remove('over'); });
+document.addEventListener('drop', (e) => { e.preventDefault(); document.body.classList.remove('over'); const f = e.dataTransfer.files && e.dataTransfer.files[0]; if (f) openFile(f); });
+$('sample').onclick = openSample;
+
+function progress(label, p) { $('loadbox').hidden = false; $('loadLabel').textContent = label; $('bar').style.width = (p * 100).toFixed(1) + '%'; $('pct').textContent = p >= 1 ? '' : Math.round(p * 100) + '%'; }
+function showArrive(reset) { $('arrive').classList.remove('gone'); if (reset) { $('loadbox').hidden = true; $('bar').style.width = '0'; } }
+function fail(msg) { toast(msg, 6500); showArrive(true); }
+
+async function openFile(f) {
+  if (!/\.(glb|gltf)$/i.test(f.name)) return toast('Only GLB files for now. The export guides show how to make one.', 5000);
+  if (f.size > 150 * 1048576) return toast(`The file is ${fmtBytes(f.size)}. The limit is 150 MB. Compress it or export fewer things.`, 7000);
+  showArrive(false); progress('Reading ' + f.name, 0.15);
+  let buf; try { buf = await f.arrayBuffer(); } catch { return fail('That file could not be read.'); }
+  progress('Setting up the room', 0.7);
+  await load(buf, f.name.replace(/\.(glb|gltf)$/i, '').replace(/[_-]+/g, ' ').trim() || 'Your model', null);
+}
+async function openSample() {
+  showArrive(false); progress('Fetching the sample room', 0);
+  try {
+    const r = await fetch(SAMPLE_URL); if (!r.ok) throw new Error('sample ' + r.status);
+    const total = +r.headers.get('content-length') || 0; const reader = r.body.getReader(); const chunks = []; let got = 0;
+    for (;;) { const { done, value } = await reader.read(); if (done) break; chunks.push(value); got += value.length; progress('Fetching the sample room', total ? got / total * 0.85 : 0.4); }
+    const all = new Uint8Array(got); let o = 0; for (const c of chunks) { all.set(c, o); o += c.length; }
+    progress('Setting up the room', 0.9);
+    const t = new TextDecoder().decode(all); const b64 = t.slice(t.indexOf('"') + 1, t.lastIndexOf('"'));
+    const bin = await (await fetch('data:application/octet-stream;base64,' + b64)).arrayBuffer();
+    await load(bin, 'Hobby Class, LVL 80.50', SAMPLE_START);
+  } catch (e) { console.error(e); fail('The sample room could not be fetched. Check your connection and try again.'); }
+}
+async function load(buf, name, start) {
+  engine ||= new Walkable($('c'));
+  if (engine.mode !== 'orbit') engine.setMode('orbit', false);
+  const data = defaultScene(); data.name = name; data.env.grid = true; data.brand.watermark = true;
+  engine.applyScene(data); scene = engine.data;
+  let stats; try { stats = await engine.loadModel(buf); } catch (e) { console.error(e); return fail('That file could not be opened as a model. Export it again as a single-file GLB and try once more.'); }
+  bytes = buf;
+  const sug = Walkable.suggestScale(stats.rawSize);
+  if (sug !== 1) { scene.model.scale = sug; engine.applyTransform(); $('unitNote').textContent = `The file spans ${Math.max(...stats.rawSize).toFixed(0)} units, so it looks like ${sug === 0.001 ? 'millimetres' : 'centimetres'}. Change it here if not.`; } else $('unitNote').textContent = 'The file looks like metres.';
+  scene.start = start || engine.defaultStart();
+  engine.goToView(engine.frameView('iso'), false);
+  statsUI(stats); syncUI();
+  $('name').textContent = name; document.title = name + ' · walkable'; $('eaLink').href = BASE + 'early-access/?model=' + encodeURIComponent(name);
+  progress('Ready', 1);
+  setTimeout(() => { $('arrive').classList.add('gone'); for (const id of ['lockup', 'modeBar', 'helpBtn', 'tweakBtn']) $(id).hidden = false; if (!isTouch && innerWidth > 900) openSide(true); updateMode(engine.mode); }, 250);
+}
+
+// ---------- the tweak panel
+function statsUI(s) {
+  if (!s) return; const sc = scene.model.scale || 1; const dims = s.rawSize.map(v => v * sc); const fp = scene.model.upAxis === 'z' ? [dims[0], dims[1]] : [dims[0], dims[2]]; const fmtL = v => v >= 100 ? Math.round(v) : v.toFixed(1);
+  $('stats').innerHTML = [[fmtBytes(s.bytes || 0), 'File'], [s.triangles >= 1e6 ? (s.triangles / 1e6).toFixed(2) + ' M' : Math.round(s.triangles / 1000) + ' k', 'Triangles'], [`${fmtL(fp[0])}×${fmtL(fp[1])} m`, 'Footprint'], [s.meshes, 'Meshes'], [s.materials, 'Materials'], [s.textures, 'Textures']].map(([v, k]) => `<div><b>${esc(v)}</b><span>${k}</span></div>`).join('');
+  const w = []; if (s.bytes > 30 * 1048576) w.push(`At ${fmtBytes(s.bytes)} this opens slowly on phones. Aim for 10 MB; compression on upload helps, but not by that much.`); if (s.triangles > 1.5e6) w.push(`${(s.triangles / 1e6).toFixed(1)} M triangles is heavy for phones. Simplify the furniture.`); if (s.textures > 40) w.push(`${s.textures} textures. Merge them, or resize to 2K.`);
+  $('warns').innerHTML = w.map(t => `<div class="warn">${esc(t)}</div>`).join('');
+}
+function seg(id, get, set) { const el = $(id); const paint = () => el.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === String(get()))); el.querySelectorAll('button').forEach(b => b.onclick = () => { set(b.dataset.v); paint(); }); el._paint = paint; }
+function reframe() { if (engine.mode === 'orbit') engine.goToView(engine.frameView('iso'), false); else engine.setPose(scene.start); }
+seg('units', () => scene.model.scale, v => { scene.model.scale = +v; engine.applyTransform(); scene.start = engine.defaultStart(); reframe(); statsUI(scene.model.stats); $('unitNote').textContent = ''; });
+seg('up', () => scene.model.upAxis, v => { scene.model.upAxis = v; engine.applyTransform(); scene.start = engine.defaultStart(); reframe(); statsUI(scene.model.stats); });
+seg('preset', () => scene.light.preset, v => { engine.setLightPreset(v); $('shadows').checked = !!scene.light.shadows; });
+seg('ceiling', () => scene.env.ceiling, v => { scene.env.ceiling = v; engine.applyEnv(); });
+$('shadows').onchange = () => { scene.light.shadows = $('shadows').checked; engine.applyLights(); };
+$('eye').oninput = () => { scene.player.eye = +$('eye').value; $('eyeV').textContent = scene.player.eye.toFixed(2) + ' m'; };
+$('speed').oninput = () => { scene.player.speed = +$('speed').value; $('speedV').textContent = scene.player.speed.toFixed(1) + ' m/s'; };
+function syncUI() { for (const id of ['units', 'up', 'preset', 'ceiling']) $(id)._paint(); $('shadows').checked = !!scene.light.shadows; $('eye').value = scene.player.eye; $('eyeV').textContent = scene.player.eye.toFixed(2) + ' m'; $('speed').value = scene.player.speed; $('speedV').textContent = scene.player.speed.toFixed(1) + ' m/s'; }
+function openSide(open) { $('side').hidden = !open; }
+$('cTweak').onclick = () => openSide($('side').hidden); $('tweakBtn').onclick = $('cTweak').onclick; $('sideClose').onclick = () => openSide(false);
+$('cStart').onclick = () => { if (engine.mode === 'orbit') { toast('Walk in first (press 2), then set the start where you stand.', 4000); return; } scene.start = engine.getPose(); toast('Start set. Your client walks in here.'); };
+
+// ---------- modes, views, help
+const modeBtns = [...$('pill').querySelectorAll('[data-mode]')];
+for (const b of modeBtns) b.onclick = () => engine.setMode(b.dataset.mode);
+function updateMode(m) { for (const b of modeBtns) b.classList.toggle('on', b.dataset.mode === m); $('crosshair').hidden = m === 'orbit' || isTouch; $('stick').hidden = m === 'orbit' || !isTouch; updateHint(); }
+let touchHintShown = false;
+function updateHint() {
+  const m = engine.mode; const h = $('hint'); if (m === 'orbit') { h.hidden = true; return; }
+  if (isTouch) { if (touchHintShown) return; touchHintShown = true; h.innerHTML = 'Drag to look around<small>Use the circle to walk</small>'; h.hidden = false; setTimeout(() => h.hidden = true, 2800); return; }
+  h.hidden = engine.walk.locked; const verb = engine.walk.lockFailed ? 'Drag' : 'Click';
+  h.innerHTML = m === 'walk' ? verb + ' to look around<small>W A S D to walk · Shift to go faster · Esc to stop</small>' : verb + ' to look around<small>W A S D to move · E up · Q down · Esc to stop</small>';
+}
+function bindEngine() {
+  engine.on('mode', updateMode); engine.on('lock', updateHint); engine.on('interact', () => { if (engine.walk.lockFailed) $('hint').hidden = true; }); engine.bindJoystick($('stick'));
+}
+const views = $('viewsPop');
+const viewItem = (icon, name, fn) => { const b = document.createElement('button'); b.innerHTML = ic(icon) + '<span></span>'; b.querySelector('span').textContent = name; b.onclick = fn; views.appendChild(b); return b; };
+viewItem('cube', 'Whole model', () => { engine.goToView(engine.frameView('iso')); views.hidden = true; });
+viewItem('plan', 'Top down', () => { engine.goToView(engine.frameView('top')); views.hidden = true; });
+viewItem('walk', 'From the start', () => { engine.setMode('walk'); views.hidden = true; });
+const spin = viewItem('refresh', 'Turn slowly', () => { if (engine.mode !== 'orbit') engine.setMode('orbit'); engine.orbit.autoRotate = !engine.orbit.autoRotate; engine.orbit.autoRotateSpeed = 0.8; spin.classList.toggle('cur', engine.orbit.autoRotate); });
+$('cViews').onclick = (e) => { e.stopPropagation(); views.hidden = !views.hidden; $('helpSheet').hidden = true; };
+$('helpBtn').onclick = (e) => { e.stopPropagation(); $('helpSheet').hidden = !$('helpSheet').hidden; views.hidden = true; };
+document.addEventListener('pointerdown', (e) => { if (!$('helpSheet').contains(e.target) && e.target !== $('helpBtn') && !$('helpBtn').contains(e.target)) $('helpSheet').hidden = true; if (!views.contains(e.target) && !$('cViews').contains(e.target)) views.hidden = true; });
+addEventListener('keydown', (e) => { if (/INPUT|TEXTAREA|SELECT/.test(e.target.tagName) || !engine || !bytes) return; if (e.key === '1') engine.setMode('orbit'); if (e.key === '2') engine.setMode('walk'); if (e.key === '3') engine.setMode('fly'); if (e.key === '?') $('helpBtn').click(); if (e.key === 'Escape') { views.hidden = true; $('helpSheet').hidden = true; } });
+
+// ---------- download as a self-hosted folder
+$('dl').onclick = async () => {
+  if (!bytes) return; const btn = $('dl'); btn.disabled = true; const old = btn.innerHTML; btn.innerHTML = ic('download') + 'Packing the folder';
+  try {
+    if (!window.JSZip) await new Promise((res, rej) => { const s = document.createElement('script'); s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js'; s.onload = res; s.onerror = () => rej(new Error('jszip')); document.head.appendChild(s); });
+    const get = (u) => fetch(u).then(r => { if (!r.ok) throw new Error(u); return r.text(); });
+    const [tpl, css, eng, sch, api] = await Promise.all([get('export-template.html'), get(BASE + 'css/walkable.css'), get(BASE + 'js/engine.js'), get(BASE + 'js/schema.js'), get(BASE + 'js/api.js')]);
+    const zip = new JSZip(); const W = zip.folder('walkable');
+    W.file('css/walkable.css', css); W.file('js/engine.js', eng); W.file('js/schema.js', sch); W.file('js/api.js', api);
+    W.file('model.js', 'window.WALKABLE_GLB_B64="' + await toBase64(bytes) + '";\n');
+    const data = JSON.parse(JSON.stringify(scene)); data.model.file = 'model.glb'; data.brand.watermark = true;
+    const html = tpl.replace('__TITLE__', () => esc(scene.name)).replace('__DESC__', () => esc(scene.name) + '. Walk through it in your browser.').replace('__STATIC__', () => JSON.stringify({ scene: data, files: 'walkable/', model: 'model.js' }).replace(/</g, '\\u003c'));
+    zip.file('index.html', html);
+    zip.file('README.txt', ['This folder is a walkable walkthrough of "' + scene.name + '".', '', 'Upload the whole folder (index.html and the walkable/ directory) to any web host that serves plain files:', 'your own website, Netlify Drop, GitHub Pages, an FTP host. Then open index.html on that site.', '', 'The model is inside walkable/model.js, so hosts that refuse .glb files still work.', 'Made with walkable - https://walkables.in/'].join('\n'));
+    const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 6 } });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = slug(scene.name) + '-walkable.zip'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+    toast('Downloaded. Unzip it and upload the folder to any web host.', 5000);
+  } catch (e) { console.error(e); toast('The folder could not be packed. Check your connection and try again.', 5000); }
+  finally { btn.disabled = false; btn.innerHTML = old; }
+};
+function toBase64(buf) { return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1]); r.onerror = () => rej(r.error); r.readAsDataURL(new Blob([buf])); }); }
+const slug = (s) => (s || 'model').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'model';
+
+// ---------- a file handed over from the home page drop zone
+function takeStash() {
+  return new Promise((res) => {
+    if (!('indexedDB' in window)) return res(null);
+    let open; try { open = indexedDB.open('walkable', 1); } catch { return res(null); }
+    open.onupgradeneeded = () => open.result.createObjectStore('handoff'); open.onerror = () => res(null);
+    open.onsuccess = () => { const db = open.result; const tx = db.transaction('handoff', 'readwrite'); const st = tx.objectStore('handoff'); const g = st.get('file'); g.onsuccess = () => { const f = g.result || null; st.delete('file'); tx.oncomplete = () => { db.close(); res(f); }; }; g.onerror = () => res(null); tx.onerror = () => res(null); };
+  });
+}
+engine = new Walkable($('c')); bindEngine();
+takeStash().then(f => { if (f) openFile(f); });
+</script>
+</body>
+</html>

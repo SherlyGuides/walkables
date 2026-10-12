@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="A walkable sample room: Kumarans CBSE Junior Block · revised plan 10-02-2026. Walk through it in your browser.">
+<meta property="og:title" content="Hobby Class, LVL 80.50">
+<meta property="og:description" content="Kumarans CBSE Junior Block · revised plan 10-02-2026. Walk through it in your browser.">
+<meta property="og:url" content="https://walkables.in/room/">
+<title>Hobby Class, LVL 80.50 · a walkable sample room</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%231B1A16%22%20stroke-width%3D%222.2%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cstyle%3E%40media%20(prefers-color-scheme%3A%20dark)%7Bpath%7Bstroke%3A%23EDEBE5%7Dcircle%7Bfill%3A%2386BBA4%7D%7D%3C%2Fstyle%3E%3Cpath%20d%3D%22M9.5%2020.5H7.5a4%204%200%200%201-4-4v-9a4%204%200%200%201%204-4h9a4%204%200%200%201%204%204v9a4%204%200%200%201-4%204h-2%22%2F%3E%3Cpath%20d%3D%22M12%2021v-4.5a4.5%204.5%200%200%200-4.5-4.5%22%2F%3E%3Ccircle%20cx%3D%228.5%22%20cy%3D%228.5%22%20r%3D%222.2%22%20fill%3D%22%232F5E4E%22%20stroke%3D%22none%22%2F%3E%3C%2Fsvg%3E%0A" type="image/svg+xml">
+<link rel="stylesheet" href="walkable/css/walkable.css?v=mv4v1ki2">
+<style>
+  html, body { height:100%; overflow:hidden; }
+  body { position:relative; height:100dvh; }
+  .arrive { position:absolute; inset:0; z-index:40; background:var(--bg); display:flex; align-items:center; justify-content:center; padding:24px; transition:opacity 500ms var(--ease), visibility 500ms; }
+  .arrive.gone { opacity:0; visibility:hidden; }
+  .arrive .in { width:340px; max-width:100%; display:grid; gap:16px; justify-items:center; text-align:center; }
+  .arrive-logo { max-height:40px; max-width:200px; }
+  .arrive .firm { font-weight:600; letter-spacing:-.01em; font-size:15px; }
+  .arrive h1 { font:400 36px/1.05 var(--serif); letter-spacing:-.01em; text-wrap:balance; }
+  .arrive .progress { width:200px; }
+  .arrive .pct { font-size:12px; color:var(--mut); font-variant-numeric:tabular-nums; }
+  .welcome { position:absolute; left:50%; bottom:92px; transform:translateX(-50%); width:360px; max-width:calc(100% - 32px); padding:18px; z-index:25; display:grid; gap:12px; animation:rise 400ms var(--ease) both; }
+  .welcome .row button { flex:1; }
+  .help-btn { position:absolute; top:16px; right:16px; z-index:20; width:40px; height:40px; padding:0; border-radius:12px; }
+  .sheet { position:absolute; top:64px; right:16px; width:300px; max-width:calc(100% - 32px); padding:16px; z-index:30; display:grid; gap:12px; animation:rise 200ms var(--ease); }
+  .keys { display:grid; grid-template-columns:auto 1fr; gap:8px 12px; align-items:center; font-size:13px; }
+  .keys > span:nth-child(odd) { display:flex; gap:3px; }
+  .dock button { flex-direction:column; height:48px; gap:3px; padding:0 12px; font-size:11.5px; min-width:58px; }
+  .dock button .i { width:18px; height:18px; }
+  .dock button.active { background:var(--accent-soft); color:var(--fg); }
+  .dock button.active .i { color:var(--accent); }
+  :root.theme-dark .dock button.active .i { color:var(--fg); }
+  .views { position:absolute; left:50%; bottom:88px; transform:translateX(-50%); padding:6px; display:grid; gap:2px; min-width:220px; max-width:calc(100% - 32px); z-index:25; animation:rise 200ms var(--ease); }
+  .views button { justify-content:flex-start; border:0; box-shadow:none; background:transparent; height:38px; }
+  .views .divider { margin:4px 6px; }
+  .views button:hover { background:color-mix(in srgb, var(--fg) 7%, transparent); }
+  .views button.cur { color:var(--fg); font-weight:600; } .views button.cur::after { content:""; margin-left:auto; width:6px; height:6px; border-radius:50%; background:var(--accent); }
+  .files { display:grid; gap:8px; max-width:560px; margin:0 auto; }
+  .files a { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:14px 16px; background:var(--raised); border-radius:var(--r); box-shadow:var(--shadow-1); font-weight:500; transition:box-shadow var(--t), transform var(--t) var(--ease); }
+  .files a:hover { box-shadow:var(--shadow-2); transform:translateY(-1px); }
+  .gate .card { width:360px; max-width:100%; padding:28px 24px 24px; display:grid; gap:14px; justify-items:center; text-align:center; }
+  .gate .icon { width:52px; height:52px; border-radius:14px; background:var(--sunk); display:flex; align-items:center; justify-content:center; }
+  .gate h1 { font:400 30px/1.05 var(--serif); }
+  .gate input { text-align:center; font-family:var(--mono); letter-spacing:.3em; font-size:16px; height:44px; }
+  .gate button { width:100%; }
+  @media (max-width:640px) { .mode { left:8px; right:8px; transform:none; max-width:none; justify-content:center; } .dock { width:100%; max-width:480px; } .dock button { min-width:0; padding:0 2px; flex:1 1 0; } .dock button span { overflow:hidden; text-overflow:ellipsis; max-width:100%; } .help-btn { top:12px; right:12px; } .mode { bottom:16px; } .welcome { bottom:88px; } .watermark { bottom:auto; top:62px; right:12px; } }
+  @media (max-width:420px) { .dock button span { font-size:10.5px; } .dock .sep { margin:8px 2px; } }
+</style>
+</head>
+<body>
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">
+<symbol id="mark" viewBox="0 0 24 24"><path d="M9.5 20.5H7.5a4 4 0 0 1-4-4v-9a4 4 0 0 1 4-4h9a4 4 0 0 1 4 4v9a4 4 0 0 1-4 4h-2"/><path d="M12 21v-4.5a4.5 4.5 0 0 0-4.5-4.5"/><circle cx="8.5" cy="8.5" r="2" fill="currentColor" stroke="none"/></symbol>
+<symbol id="cube" viewBox="0 0 24 24"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z"/><path d="M4 7.5l8 4.5 8-4.5M12 12v9"/></symbol>
+<symbol id="orbit" viewBox="0 0 24 24"><circle cx="12" cy="12" r="2.5"/><ellipse cx="12" cy="12" rx="9.5" ry="4.5" transform="rotate(-20 12 12)"/></symbol>
+<symbol id="walk" viewBox="0 0 24 24"><circle cx="13.5" cy="4.5" r="1.6"/><path d="M10 21l2.2-5.5 2.8 2.5v3M12.2 15.5l1.3-5.5M13.5 10l3 2.5 2 .5M13.5 10l-3.5 1.5-1.5 3"/></symbol>
+<symbol id="fly" viewBox="0 0 24 24"><path d="M3.5 11L20.5 4l-7 16.5-2.4-7.1L3.5 11z"/><path d="M11.1 13.4L20.5 4"/></symbol>
+<symbol id="bookmark" viewBox="0 0 24 24"><path d="M6.5 3.5h11v17l-5.5-3.8-5.5 3.8v-17z"/></symbol>
+<symbol id="plan" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="1.5"/><path d="M3.5 10.5h6.5v10M14 3.5v6.5h6.5M14 14h6.5"/></symbol>
+<symbol id="pin" viewBox="0 0 24 24"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.2"/></symbol>
+<symbol id="clip" viewBox="0 0 24 24"><path d="M20 11.5l-8.2 8.2a5 5 0 0 1-7.1-7.1L13 4.3a3.3 3.3 0 0 1 4.7 4.7l-8.3 8.3a1.7 1.7 0 0 1-2.4-2.4l7.5-7.5"/></symbol>
+<symbol id="sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M2.5 12h2M19.5 12h2M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/></symbol>
+<symbol id="brand" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 15l2.8-6 2.7 6M7.9 13.2h3.8M16 9v6"/></symbol>
+<symbol id="layers" viewBox="0 0 24 24"><path d="M12 3.5l9 5-9 5-9-5 9-5z"/><path d="M3 13l9 5 9-5"/></symbol>
+<symbol id="link" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></symbol>
+<symbol id="upload" viewBox="0 0 24 24"><path d="M12 15.5V4M7 8.5L12 4l5 4.5"/><path d="M4 15v3.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V15"/></symbol>
+<symbol id="plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+<symbol id="check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+<symbol id="close" viewBox="0 0 24 24"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/></symbol>
+<symbol id="back" viewBox="0 0 24 24"><path d="M14.5 5.5L8 12l6.5 6.5"/></symbol>
+<symbol id="down" viewBox="0 0 24 24"><path d="M6 9.5l6 6 6-6"/></symbol>
+<symbol id="arrow" viewBox="0 0 24 24"><path d="M5 12h14M13.5 6.5L19 12l-5.5 5.5"/></symbol>
+<symbol id="copy" viewBox="0 0 24 24"><rect x="8.5" y="8.5" width="11.5" height="11.5" rx="2"/><path d="M15.5 8.5V5.5A1.5 1.5 0 0 0 14 4H5.5A1.5 1.5 0 0 0 4 5.5V14a1.5 1.5 0 0 0 1.5 1.5h3"/></symbol>
+<symbol id="external" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-8.5 8.5"/><path d="M18 14v4.5a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 4 18.5v-11A1.5 1.5 0 0 1 5.5 6H10"/></symbol>
+<symbol id="eye" viewBox="0 0 24 24"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="2.8"/></symbol>
+<symbol id="swatch" viewBox="0 0 24 24"><path d="M12 3.5a8.5 8.5 0 0 0 0 17c1.4 0 2-1 2-2s-.8-1.5-.8-2.5 1-1.8 2-1.8h2.3c1.7 0 3-1.2 3-3.2 0-4.2-3.8-7.5-8.5-7.5z"/><circle cx="7.8" cy="11" r="1.1"/><circle cx="10.5" cy="7.3" r="1.1"/><circle cx="15" cy="7.8" r="1.1"/></symbol>
+<symbol id="cursor" viewBox="0 0 24 24"><path d="M5.5 3.5l13 6.5-5.7 1.9-2 5.6L5.5 3.5z"/><path d="M13 12l5.5 5.5"/></symbol>
+<symbol id="image" viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><circle cx="9" cy="10" r="1.8"/><path d="M20.5 15.5l-4.5-4.5-8.5 8.5"/></symbol>
+<symbol id="frame" viewBox="0 0 24 24"><rect x="4" y="7" width="16" height="12" rx="1.5"/><path d="M8.5 3.5L12 7l3.5-3.5M8 13h8"/></symbol>
+<symbol id="target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7.5"/><circle cx="12" cy="12" r="2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></symbol>
+<symbol id="help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.4a2.5 2.5 0 1 1 3.9 2.1c-.9.6-1.5 1.1-1.5 2.4M12 17h.01"/></symbol>
+<symbol id="trash" viewBox="0 0 24 24"><path d="M4.5 7h15M10 11v5.5M14 11v5.5M6.5 7l.8 12a1.5 1.5 0 0 0 1.5 1.5h6.4a1.5 1.5 0 0 0 1.5-1.5l.8-12M9.5 7V4.5h5V7"/></symbol>
+<symbol id="lock" viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8.5 10.5V7.5a3.5 3.5 0 0 1 7 0v3"/></symbol>
+<symbol id="clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></symbol>
+<symbol id="users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.3"/><path d="M3 19.5a6 6 0 0 1 12 0M15.5 4.8a3.3 3.3 0 0 1 0 6.4M17.5 14a6 6 0 0 1 3.5 5.5"/></symbol>
+<symbol id="refresh" viewBox="0 0 24 24"><path d="M19.5 11.5a7.5 7.5 0 1 0-2.2 5.3M19.5 4.5v7h-7"/></symbol>
+<symbol id="phone" viewBox="0 0 24 24"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></symbol>
+<symbol id="settings" viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></symbol>
+<symbol id="play" viewBox="0 0 24 24"><path d="M7.5 4.5l12 7.5-12 7.5v-15z"/></symbol>
+<symbol id="ruler" viewBox="0 0 24 24"><path d="M3.5 16.5l13-13 4 4-13 13-4-4z"/><path d="M7 13l2 2M10 10l2 2M13 7l2 2"/></symbol>
+</svg>
+
+<canvas id="c" class="canvas" aria-label="3D model of the space"></canvas>
+<div id="arrive" class="arrive"><div class="in">
+  <img id="arriveLogo" class="arrive-logo" alt="" hidden><span class="firm" id="arriveFirm" hidden></span>
+  <h1 id="arriveName"></h1>
+  <div class="progress"><span id="bar"></span></div><span class="pct" id="pct">Opening</span>
+</div></div>
+<div id="lockup" class="panel lockup" hidden role="button" tabindex="0" aria-label="Show or hide the title"><img id="logo" alt="" hidden><span class="sep" id="lockSep" hidden></span><div class="text"><div class="title" id="name"></div><div class="mut" id="caption"></div></div></div>
+<button class="panel help-btn" id="helpBtn" hidden aria-label="How to move around"><svg class="i i-lg"><use href="#help"/></svg></button>
+<div class="pop sheet" id="helpSheet" hidden>
+  <div class="heading">Moving around</div>
+  <div class="keys" id="keysDesk">
+    <span><span class="kbd">Drag</span></span><span>Turn the model</span>
+    <span><span class="kbd">Scroll</span></span><span>Zoom</span>
+    <span><span class="kbd">W</span><span class="kbd">A</span><span class="kbd">S</span><span class="kbd">D</span></span><span>Walk</span>
+    <span><span class="kbd">Shift</span></span><span>Walk faster</span>
+    <span><span class="kbd">E</span><span class="kbd">Q</span></span><span>Up and down in Fly</span>
+    <span><span class="kbd">Esc</span></span><span>Back to Orbit</span>
+    <span><span class="kbd">1</span><span class="kbd">2</span><span class="kbd">3</span></span><span>Orbit, Walk, Fly</span>
+  </div>
+  <div class="keys" id="keysTouch" hidden>
+    <span><span class="kbd">1 finger</span></span><span>Turn, or look in Walk</span>
+    <span><span class="kbd">2 fingers</span></span><span>Pinch to zoom</span>
+    <span><span class="kbd">Joystick</span></span><span>Move in Walk and Fly</span>
+  </div>
+</div>
+<div id="hint" class="center-hint" hidden></div>
+<div id="crosshair" class="crosshair" hidden></div>
+<div id="stick" class="stick" hidden><span></span></div>
+<div id="viewsPop" class="pop views" hidden></div>
+<div id="layoutPop" class="pop views" hidden></div>
+<div class="pop welcome" id="welcome" hidden>
+  <div><div class="heading" id="welcomeTitle">Take a look around</div><div class="help" id="welcomeText">Walk in at eye level, or turn the whole model from above.</div></div>
+  <div class="row"><button class="accent" id="wWalk"><svg class="i"><use href="#walk"/></svg>Walk in</button><button id="wLook"><svg class="i"><use href="#orbit"/></svg>Look around</button></div>
+</div>
+<div class="mode" id="modeBar" hidden><div class="pill dock" id="pill">
+  <button data-mode="orbit"><svg class="i"><use href="#orbit"/></svg><span>Orbit</span></button>
+  <button data-mode="walk"><svg class="i"><use href="#walk"/></svg><span>Walk</span></button>
+  <button data-mode="fly"><svg class="i"><use href="#fly"/></svg><span>Fly</span></button>
+  <span class="sep" id="dockSep" hidden></span>
+  <button id="cLayout" hidden><svg class="i"><use href="#layers"/></svg><span>Layout</span></button>
+  <button id="cViews" hidden><svg class="i"><use href="#bookmark"/></svg><span>Views</span></button>
+  <button id="cPlan" hidden><svg class="i"><use href="#plan"/></svg><span>Plan</span></button>
+  <button id="cNotes" hidden aria-pressed="true"><svg class="i"><use href="#pin"/></svg><span>Notes</span></button>
+  <button id="cFiles" hidden><svg class="i"><use href="#clip"/></svg><span>Files</span></button>
+</div></div>
+<a id="wm" class="watermark" href="../" hidden><svg class="i"><use href="#mark"/></svg>Made with walkable</a>
+<div id="markers"></div>
+<div id="gate" class="gate" hidden><div class="pop card">
+  <img id="gateLogo" class="arrive-logo" alt="" hidden>
+  <span class="icon" id="gateIcon"></span>
+  <h1 id="gateTitle"></h1><p class="help" id="gateText"></p>
+  <input id="pinInput" type="password" inputmode="numeric" autocomplete="off" placeholder="PIN" aria-label="PIN" hidden>
+  <button class="accent lg" id="gateBtn" hidden>Open</button>
+</div></div>
+<div id="modal" class="modal" hidden role="dialog"><div class="bar"><strong id="modalTitle"></strong><span class="row" id="modalActions"></span></div><div class="mbody" id="modalBody"></div></div>
+<script>window.WALKABLE_ICONS = ''; window.WALKABLE_STATIC = {"scene":{"version":1,"name":"Hobby Class, LVL 80.50","caption":"Kumarans CBSE Junior Block · revised plan 10-02-2026","theme":"auto","brand":{"firm":"Demo Studio","logo":"logo.png","accent":"#1f4e79","invertDark":true,"watermark":true},"model":{"file":"model.glb","scale":1,"upAxis":"y","animations":true,"stats":{"triangles":689592,"meshes":876,"materials":123,"textures":28,"animations":1,"rawSize":[10.213,3.15,10.633],"bytes":10917840}},"start":{"pos":[9.3,1.6,-9.3],"yaw":3.141592653589793,"pitch":0},"player":{"eye":1.6,"speed":2.2},"light":{"preset":"daylight","sunElev":55,"sunAzim":210,"sunIntensity":1.4,"sunColor":"#fff6e8","ambient":0.5,"envIntensity":1,"exposure":1.05,"shadows":true,"background":"auto"},"env":{"ceiling":"walk","ground":true,"grid":false},"materials":{"mat:Brick_Common_Bond":{"color":"#8a9aa6","keepTexture":false,"roughness":1,"metalness":0}},"plaque":{"pos":[-0.1016,2.4561,-1.88],"normal":[-1,0,0],"width":1.2},"media":[{"id":"demo","file":"media-demo.mp4","kind":"video","pos":[6.8,1.906,-10.394],"normal":[0,0,1],"width":2.06,"loop":true}],"views":[{"name":"Zing at the desk","pos":[5.6,1.5,-5.3],"target":[6.4,1.15,-6.7]}],"notes":[{"id":"n1","pos":[6.8,1.9,-10.4],"title":"Projector screen","text":"A 2.06 m wide screen in front of the whiteboard. The lesson video loops here."}],"plan":"plan.png","attachments":[],"layouts":{"file":"layouts.json","default":"lecture","options":[{"key":"lecture","name":"Lecture"},{"key":"activity","name":"Activity time"}]},"modes":{"default":"orbit","walk":true,"fly":true,"orbit":true}},"files":"walkable/","model":"model.js?v=mv4v1ki2"};</script>
+<script type="importmap">{ "imports": { "three": "https://unpkg.com/three@0.170.0/build/three.module.js", "three/addons/": "https://unpkg.com/three@0.170.0/examples/jsm/", "three-mesh-bvh": "https://unpkg.com/three-mesh-bvh@0.7.8/build/index.module.js" } }</script>
+<script type="module">
+import { Walkable } from './walkable/js/engine.js?v=mv4v1ki2';
+import { contrast } from './walkable/js/schema.js?v=mv4v1ki2';
+import { ic } from './walkable/js/api.js?v=mv4v1ki2';
+const $ = (id) => document.getElementById(id);
+const STATIC = window.WALKABLE_STATIC || null;
+const slug = STATIC ? 'static' : location.pathname.split('/').filter(Boolean)[1];
+const pinKey = 'walkable.pin.' + slug; let pin = ''; try { pin = sessionStorage.getItem(pinKey) || ''; } catch {}
+let vid = 'anon'; try { vid = localStorage.getItem('walkable.vid') || Math.random().toString(36).slice(2, 12); localStorage.setItem('walkable.vid', vid); } catch {}
+const isTouch = Walkable.isTouch; const pq = () => pin ? `?pin=${encodeURIComponent(pin)}` : '';
+$('keysDesk').hidden = isTouch; $('keysTouch').hidden = !isTouch;
+
+function gate(kind, title, text) {
+  $('gate').hidden = false; $('arrive').classList.add('gone'); $('gateTitle').textContent = title; $('gateText').textContent = text;
+  $('gateIcon').innerHTML = ic(kind === 'pin' ? 'lock' : kind === 'expired' ? 'clock' : 'link', 'i-lg'); const ask = kind === 'pin'; $('pinInput').hidden = !ask; $('gateBtn').hidden = !ask; document.title = title;
+  if (ask) { $('pinInput').value = ''; $('pinInput').focus(); }
+}
+async function fetchLink() {
+  if (STATIC) return { scene: STATIC.scene, files: STATIC.files };
+  const r = await fetch(`/api/links/${slug}`, { headers: pin ? { 'x-pin': pin } : {} }); const j = await r.json().catch(() => ({}));
+  if (r.status === 401) { const b = j.brand || {}; if (b.accent) document.documentElement.style.setProperty('--accent', b.accent); if (b.logo) { $('gateLogo').src = b.logo; $('gateLogo').alt = b.firm || ''; $('gateLogo').hidden = false; } else if (b.firm) { $('gateText').dataset.firm = b.firm; } gate('pin', pin ? 'That PIN did not match' : 'This room is private', pin ? 'Check the PIN and try again.' : (b.firm ? b.firm + ' shared this privately. ' : '') + 'Enter the PIN your architect sent you.'); return null; }
+  if (r.status === 410) { gate('expired', 'This link has ended', 'Ask your architect to renew it. Nothing on your side needs to change.'); return null; }
+  if (!r.ok) { gate('missing', 'Link not found', 'The address may be incomplete, or the architect has turned this link off.'); return null; }
+  return j;
+}
+$('gateBtn').onclick = () => { pin = $('pinInput').value.trim(); try { sessionStorage.setItem(pinKey, pin); } catch {} start(); };
+$('pinInput').onkeydown = e => { if (e.key === 'Enter') $('gateBtn').click(); };
+
+let engine, data, files;
+async function start() {
+  const link = await fetchLink(); if (!link) return; $('gate').hidden = true; $('arrive').classList.remove('gone');
+  data = link.scene; files = link.files;
+  const b = data.brand || {}; document.title = (data.name || 'Untitled') + (b.firm ? ' · ' + b.firm : '');
+  $('arriveName').textContent = data.name || ''; if (b.logo) { $('arriveLogo').src = files + b.logo + pq(); $('arriveLogo').alt = b.firm || ''; $('arriveLogo').hidden = false; } else if (b.firm) { $('arriveFirm').textContent = b.firm; $('arriveFirm').hidden = false; }
+  engine ||= new Walkable($('c')); engine.applyScene(data); data = engine.data; applyBrand();
+  if (!STATIC) fetch(`/api/links/${slug}/open`, { method: 'POST', headers: { 'content-type': 'application/json', ...(pin ? { 'x-pin': pin } : {}) }, body: JSON.stringify({ vid }) }).catch(() => {});
+  try {
+    const modelFile = STATIC?.model || data.model.file;
+    const r = await fetch(files + modelFile, { headers: pin ? { 'x-pin': pin } : {} }); if (!r.ok) throw new Error('model');
+    const total = +r.headers.get('content-length') || 0; const reader = r.body.getReader(); const chunks = []; let got = 0;
+    for (;;) { const { done, value } = await reader.read(); if (done) break; chunks.push(value); got += value.length; if (total) { const p = got / total; $('bar').style.width = (p * 92).toFixed(1) + '%'; $('pct').textContent = `${(got / 1048576 * (/\.js(\?|$)/.test(modelFile) ? 0.75 : 1)).toFixed(1)} of ${(total / 1048576 * (/\.js(\?|$)/.test(modelFile) ? 0.75 : 1)).toFixed(1)} MB`; } }
+    let buf = new Uint8Array(got); let o = 0; for (const c of chunks) { buf.set(c, o); o += c.length; }
+    $('pct').textContent = 'Setting up the room';
+    if (/\.js(\?|$)/.test(modelFile)) { const t = new TextDecoder().decode(buf); const b64 = t.slice(t.indexOf('"') + 1, t.lastIndexOf('"')); buf = new Uint8Array(await (await fetch('data:application/octet-stream;base64,' + b64)).arrayBuffer()); }
+    await engine.loadModel(buf.buffer);
+  } catch (e) { console.error(e); gate('missing', 'The model could not be opened', 'Try again in a moment. If it keeps happening, let your architect know.'); return; }
+  $('bar').style.width = '100%';
+  engine.goToView(engine.frameView('iso'), false);
+  buildDock(); buildMedia(); setupModes();
+  setTimeout(() => { $('arrive').classList.add('gone'); $('lockup').hidden = false; $('modeBar').hidden = false; $('helpBtn').hidden = false; $('wm').hidden = !b.watermark; welcome(); }, 250);
+}
+function applyBrand() {
+  const b = data.brand || {}; const root = document.documentElement; const acc = b.accent || '#2F5E4E';
+  root.style.setProperty('--accent', acc); root.style.setProperty('--accent-fg', contrast(acc, '#ffffff') < 3 ? '#151512' : '#ffffff'); root.style.setProperty('--accent-soft', acc + '22');
+  const face = engine.isDark() ? '#201F1C' : '#FFFFFF'; root.classList.toggle('low-contrast', contrast(acc, face) < 3);
+  $('name').textContent = data.name || ''; $('caption').textContent = data.caption || ''; $('caption').hidden = !data.caption;
+  if (b.logo) { const img = $('logo'); img.src = files + b.logo + pq(); img.alt = b.firm || ''; img.hidden = false; $('lockSep').hidden = false; img.onload = () => engine.setLogoImage(img); }
+  else if (b.firm) $('caption').textContent = b.firm + (data.caption ? ' · ' + data.caption : ''), $('caption').hidden = false;
+  $('lockup').onclick = () => $('lockup').classList.toggle('collapsed'); $('lockup').onkeydown = (e) => { if (e.key === 'Enter') $('lockup').click(); };
+}
+let welcomed = false; try { welcomed = sessionStorage.getItem('walkable.welcomed.' + slug) === '1'; } catch {}
+function welcome() {
+  if (welcomed || data.modes.default !== 'orbit') { if (data.modes.default !== 'orbit' && data.modes[data.modes.default] !== false) engine.setMode(data.modes.default); return; }
+  if (data.modes.walk === false) { $('wWalk').hidden = true; $('welcomeText').textContent = 'Drag to turn the model, scroll or pinch to zoom.'; }
+  $('welcome').hidden = false;
+  const close = () => { $('welcome').hidden = true; welcomed = true; try { sessionStorage.setItem('walkable.welcomed.' + slug, '1'); } catch {} };
+  $('wWalk').onclick = () => { close(); engine.setMode('walk'); }; $('wLook').onclick = close; $('c').addEventListener('pointerdown', close, { once: true });
+}
+function buildDock() {
+  buildLayouts();
+  const has = { layout: !!data.layouts, views: true, plan: !!data.plan, notes: data.notes.length > 0, files: data.attachments.length > 0 };
+  $('cViews').hidden = false; $('cPlan').hidden = !has.plan; $('cNotes').hidden = !has.notes; $('cFiles').hidden = !has.files; $('dockSep').hidden = !Object.values(has).some(Boolean);
+  const p = $('viewsPop'); p.innerHTML = '';
+  const item = (icon, name, fn) => { const c = document.createElement('button'); c.innerHTML = ic(icon) + '<span></span>'; c.querySelector('span').textContent = name; c.onclick = fn; p.appendChild(c); return c; };
+  item('cube', 'Whole model', () => { engine.goToView(engine.frameView('iso')); p.hidden = true; });
+  item('plan', 'Top down', () => { engine.goToView(engine.frameView('top')); p.hidden = true; });
+  if (data.views.length) p.appendChild(Object.assign(document.createElement('hr'), { className: 'divider' }));
+  for (const v of data.views) item('bookmark', v.name || 'View', () => { engine.goToView(v); p.hidden = true; });
+  p.appendChild(Object.assign(document.createElement('hr'), { className: 'divider' }));
+  const spin = item('refresh', 'Turn slowly', () => { if (engine.mode !== 'orbit') engine.setMode('orbit'); engine.orbit.autoRotate = !engine.orbit.autoRotate; engine.orbit.autoRotateSpeed = 0.8; spin.classList.toggle('cur', engine.orbit.autoRotate); });
+  $('cViews').onclick = (e) => { e.stopPropagation(); p.hidden = !p.hidden; $('helpSheet').hidden = true; $('layoutPop').hidden = true; };
+  $('cPlan').onclick = openPlan; $('cFiles').onclick = openFiles;
+  $('cNotes').classList.toggle('active', notesOn); $('cNotes').onclick = () => { notesOn = !notesOn; $('cNotes').classList.toggle('active', notesOn); $('cNotes').setAttribute('aria-pressed', notesOn); if (!notesOn && openCard) { openCard.el.remove(); openCard = null; } };
+  buildMarkers();
+}
+let layoutMap = null, layoutKey = null;
+async function buildLayouts() {
+  const L = data.layouts; $('cLayout').hidden = !L; if (!L) return;
+  try { layoutMap = await (await fetch(files + L.file + pq())).json(); } catch { $('cLayout').hidden = true; return; }
+  layoutKey = L.default || L.options[0].key; engine.setLayout(layoutMap, layoutKey, false);
+  const p = $('layoutPop'); const draw = () => { p.innerHTML = ''; for (const op of L.options) { const b = document.createElement('button'); b.innerHTML = ic('layers') + '<span></span>'; b.querySelector('span').textContent = op.name; b.classList.toggle('cur', op.key === layoutKey); b.onclick = () => { layoutKey = op.key; engine.setLayout(layoutMap, layoutKey, true); draw(); p.hidden = true; }; p.appendChild(b); } }; draw();
+  $('cLayout').onclick = (e) => { e.stopPropagation(); p.hidden = !p.hidden; $('viewsPop').hidden = true; $('helpSheet').hidden = true; };
+}
+function buildMedia() {
+  for (const m of data.media) { if (!m.pos) continue; const el = m.kind === 'video' ? Object.assign(document.createElement('video'), { muted: true, loop: m.loop !== false, playsInline: true, autoplay: true, crossOrigin: 'anonymous' }) : new Image(); el.src = files + m.file + pq(); el.hidden = true; document.body.appendChild(el);
+    if (m.kind === 'video') { el.addEventListener('loadeddata', () => { engine.setMediaSource(m.id, el); el.play().catch(() => {}); }); addEventListener('pointerdown', () => el.play().catch(() => {}), { once: true }); } else el.onload = () => engine.setMediaSource(m.id, el); }
+}
+let modeBtns;
+function setupModes() {
+  modeBtns = [...$('pill').querySelectorAll('[data-mode]')]; for (const b of modeBtns) { b.hidden = data.modes[b.dataset.mode] === false; b.onclick = () => engine.setMode(b.dataset.mode); }
+  engine.on('mode', updateMode); engine.on('lock', updateHint); engine.on('interact', () => { if (engine.walk.lockFailed) $('hint').hidden = true; }); updateMode('orbit'); engine.bindJoystick($('stick'));
+  addEventListener('keydown', e => { if (/INPUT|TEXTAREA/.test(e.target.tagName)) return; if (e.key === '1') engine.setMode('orbit'); if (e.key === '2' && data.modes.walk !== false) engine.setMode('walk'); if (e.key === '3' && data.modes.fly !== false) engine.setMode('fly'); if (e.key.toLowerCase() === 'p' && data.plan) openPlan(); if (e.key === '?') $('helpBtn').click(); if (e.key === 'Escape') { $('modal').hidden = true; $('viewsPop').hidden = true; $('layoutPop').hidden = true; $('helpSheet').hidden = true; } });
+}
+$('helpBtn').onclick = (e) => { e.stopPropagation(); $('helpSheet').hidden = !$('helpSheet').hidden; $('viewsPop').hidden = true; };
+document.addEventListener('pointerdown', (e) => { if (!$('helpSheet').contains(e.target) && e.target !== $('helpBtn')) $('helpSheet').hidden = true; if (!$('viewsPop').contains(e.target) && !$('cViews').contains(e.target)) $('viewsPop').hidden = true; if (!$('layoutPop').contains(e.target) && !$('cLayout').contains(e.target)) $('layoutPop').hidden = true; });
+function updateMode(m) { for (const b of modeBtns) b.classList.toggle('on', b.dataset.mode === m); $('crosshair').hidden = m === 'orbit' || isTouch; $('stick').hidden = m === 'orbit' || !isTouch; if (m !== 'orbit') $('welcome').hidden = true; updateHint(); }
+let touchHintShown = false;
+function updateHint() {
+  const m = engine.mode; const h = $('hint'); if (m === 'orbit') { h.hidden = true; return; }
+  if (isTouch) { if (touchHintShown) return; touchHintShown = true; h.innerHTML = 'Drag to look around<small>Use the circle to walk</small>'; h.hidden = false; setTimeout(() => h.hidden = true, 2800); return; }
+  h.hidden = engine.walk.locked; const verb = engine.walk.lockFailed ? 'Drag' : 'Click'; h.innerHTML = m === 'walk' ? verb + ' to look around<small>W A S D to walk · Shift to go faster · Esc to stop</small>' : verb + ' to look around<small>W A S D to move · E up · Q down · Esc to stop</small>';
+}
+// notes
+let notesOn = true; const markerEls = new Map(); let openCard = null;
+function buildMarkers() {
+  const host = $('markers'); host.innerHTML = ''; markerEls.clear();
+  for (const n of data.notes) { const m = document.createElement('button'); m.className = 'marker'; m.setAttribute('aria-label', n.title || 'Note'); m.onclick = (e) => { e.stopPropagation(); showCard(n); }; host.appendChild(m); markerEls.set(n.id, m); }
+  engine.onFrame(() => { for (const n of data.notes) { const el = markerEls.get(n.id); if (!el) continue; const p = engine.project(n.pos); const vis = notesOn && p.visible && !engine.occluded(n.pos); el.style.display = vis ? '' : 'none'; if (vis) { el.style.left = p.x + 'px'; el.style.top = p.y + 'px'; } if (openCard && openCard.note === n) { openCard.el.style.display = vis ? '' : 'none'; openCard.el.style.left = Math.max(8, Math.min(innerWidth - 260, p.x + 14)) + 'px'; openCard.el.style.top = Math.max(8, p.y - 14) + 'px'; } } });
+  document.addEventListener('pointerdown', (e) => { if (openCard && !openCard.el.contains(e.target) && !e.target.classList.contains('marker')) { openCard.el.remove(); openCard = null; } });
+}
+function showCard(n) { if (openCard) openCard.el.remove(); const el = document.createElement('div'); el.className = 'panel marker-card'; el.innerHTML = `<div class="heading"></div><div class="help" style="color:var(--fg)"></div>`; el.children[0].textContent = n.title || 'Note'; el.children[1].textContent = n.text || ''; document.body.appendChild(el); openCard = { note: n, el }; }
+// plan and files
+function openModal(title, bodyEl, actions = []) { $('modalTitle').textContent = title; const a = $('modalActions'); a.innerHTML = ''; for (const x of actions) a.appendChild(x); const c = document.createElement('button'); c.innerHTML = ic('close') + 'Close'; c.onclick = () => $('modal').hidden = true; a.appendChild(c); const b = $('modalBody'); b.innerHTML = ''; b.appendChild(bodyEl); $('modal').hidden = false; }
+function openPlan() { const url = files + data.plan + pq(); const el = /\.pdf$/i.test(data.plan) ? Object.assign(document.createElement('iframe'), { src: url, title: 'Floor plan' }) : Object.assign(new Image(), { src: url, alt: 'Floor plan of ' + (data.name || 'the space') }); const dl = Object.assign(document.createElement('a'), { href: url, className: 'btn', download: '' }); dl.innerHTML = ic('upload') + 'Download'; dl.querySelector('svg').style.transform = 'rotate(180deg)'; openModal('Floor plan', el, [dl]); }
+function openFiles() { const w = document.createElement('div'); w.className = 'files'; for (const f of data.attachments) { const a = document.createElement('a'); a.href = files + f.file + pq(); a.download = f.name; a.innerHTML = `<span style="display:flex;gap:10px;align-items:center">${ic('clip')}<span></span></span><span class="mut small">Download</span>`; a.querySelector('span span').textContent = f.name; w.appendChild(a); } openModal('Files from your architect', w); }
+start();
+</script>
+</body>
+</html>

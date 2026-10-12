@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+Disallow: /try/export-template.html
+Sitemap: https://walkables.in/sitemap.xml

@@ -1,0 +1,8 @@
+ErrorDocument 404 /404.html
+AddType application/javascript .js .mjs
+AddType application/json .json
+AddType image/svg+xml .svg
+AddType model/gltf-binary .glb
+AddType model/gltf+json .gltf
+AddType video/mp4 .mp4
+AddType font/woff2 .woff2
