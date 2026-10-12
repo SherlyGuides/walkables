@@ -9,7 +9,7 @@
 <meta property="og:url" content="https://walkables.in/room/">
 <title>Hobby Class, LVL 80.50 · a walkable sample room</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%231B1A16%22%20stroke-width%3D%222.2%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cstyle%3E%40media%20(prefers-color-scheme%3A%20dark)%7Bpath%7Bstroke%3A%23EDEBE5%7Dcircle%7Bfill%3A%2386BBA4%7D%7D%3C%2Fstyle%3E%3Cpath%20d%3D%22M9.5%2020.5H7.5a4%204%200%200%201-4-4v-9a4%204%200%200%201%204-4h9a4%204%200%200%201%204%204v9a4%204%200%200%201-4%204h-2%22%2F%3E%3Cpath%20d%3D%22M12%2021v-4.5a4.5%204.5%200%200%200-4.5-4.5%22%2F%3E%3Ccircle%20cx%3D%228.5%22%20cy%3D%228.5%22%20r%3D%222.2%22%20fill%3D%22%232F5E4E%22%20stroke%3D%22none%22%2F%3E%3C%2Fsvg%3E%0A" type="image/svg+xml">
-<link rel="stylesheet" href="walkable/css/walkable.css?v=mv4xvyk9">
+<link rel="stylesheet" href="walkable/css/walkable.css?v=mv4y6jsq">
 <style>
   html, body { height:100%; overflow:hidden; }
   body { position:relative; height:100dvh; }
@@ -109,11 +109,13 @@
     <span><span class="kbd">E</span><span class="kbd">Q</span></span><span>Up and down in Fly</span>
     <span><span class="kbd">Esc</span></span><span>Back to Orbit</span>
     <span><span class="kbd">1</span><span class="kbd">2</span><span class="kbd">3</span></span><span>Orbit, Walk, Fly</span>
+    <span><span class="kbd">Click</span></span><span>Open or close a door</span>
   </div>
   <div class="keys" id="keysTouch" hidden>
     <span><span class="kbd">1 finger</span></span><span>Turn, or look in Walk</span>
     <span><span class="kbd">2 fingers</span></span><span>Pinch to zoom</span>
     <span><span class="kbd">Joystick</span></span><span>Move in Walk and Fly</span>
+    <span><span class="kbd">Tap</span></span><span>Open or close a door</span>
   </div>
 </div>
 <div id="hint" class="center-hint" hidden></div>
@@ -146,12 +148,12 @@
   <button class="accent lg" id="gateBtn" hidden>Open</button>
 </div></div>
 <div id="modal" class="modal" hidden role="dialog"><div class="bar"><strong id="modalTitle"></strong><span class="row" id="modalActions"></span></div><div class="mbody" id="modalBody"></div></div>
-<script>window.WALKABLE_ICONS = ''; window.WALKABLE_STATIC = {"scene":{"version":1,"name":"Hobby Class, LVL 80.50","caption":"Kumarans CBSE Junior Block · revised plan 10-02-2026","theme":"auto","brand":{"firm":"Demo Studio","logo":"logo.png","accent":"#1f4e79","invertDark":true,"watermark":true},"model":{"file":"model.glb","scale":1,"upAxis":"y","animations":true,"stats":{"triangles":689592,"meshes":876,"materials":123,"textures":28,"animations":1,"rawSize":[10.213,3.15,10.633],"bytes":10917840}},"start":{"pos":[9.3,1.6,-9.3],"yaw":3.141592653589793,"pitch":0},"player":{"eye":1.6,"speed":2.2},"light":{"preset":"daylight","sunElev":55,"sunAzim":210,"sunIntensity":1.4,"sunColor":"#fff6e8","ambient":0.5,"envIntensity":1,"exposure":1.05,"shadows":true,"background":"auto"},"env":{"ceiling":"walk","ground":true,"grid":false},"materials":{"mat:Brick_Common_Bond":{"color":"#8a9aa6","keepTexture":false,"roughness":1,"metalness":0}},"plaque":{"pos":[-0.1016,2.4561,-1.88],"normal":[-1,0,0],"width":1.2},"media":[{"id":"demo","file":"media-demo.mp4","kind":"video","pos":[6.8,1.906,-10.394],"normal":[0,0,1],"width":2.06,"loop":true}],"views":[{"name":"Zing at the desk","pos":[5.6,1.5,-5.3],"target":[6.4,1.15,-6.7]}],"notes":[{"id":"n1","pos":[6.8,1.9,-10.4],"title":"Projector screen","text":"A 2.06 m wide screen in front of the whiteboard. The lesson video loops here."}],"plan":"plan.png","attachments":[],"layouts":{"file":"layouts.json","default":"lecture","options":[{"key":"lecture","name":"Lecture"},{"key":"activity","name":"Activity time"}]},"modes":{"default":"orbit","walk":true,"fly":true,"orbit":true}},"files":"walkable/","model":"model.js?v=mv4xvyk9"};</script>
+<script>window.WALKABLE_ICONS = ''; window.WALKABLE_STATIC = {"scene":{"version":1,"name":"Hobby Class, LVL 80.50","caption":"Kumarans CBSE Junior Block · revised plan 10-02-2026","theme":"auto","brand":{"firm":"Demo Studio","logo":"logo.png","accent":"#1f4e79","invertDark":true,"watermark":true},"model":{"file":"model.glb","scale":1,"upAxis":"y","animations":true,"stats":{"triangles":689592,"meshes":876,"materials":123,"textures":28,"animations":1,"rawSize":[10.213,3.15,10.633],"bytes":10917840}},"start":{"pos":[9.3,1.6,-9.3],"yaw":3.141592653589793,"pitch":0},"player":{"eye":1.6,"speed":2.2},"light":{"preset":"daylight","sunElev":55,"sunAzim":210,"sunIntensity":1.4,"sunColor":"#fff6e8","ambient":0.5,"envIntensity":1,"exposure":1.05,"shadows":true,"background":"auto"},"env":{"ceiling":"walk","ground":true,"grid":false},"materials":{"mat:Brick_Common_Bond":{"color":"#8a9aa6","keepTexture":false,"roughness":1,"metalness":0}},"plaque":{"pos":[-0.1016,2.4561,-1.88],"normal":[-1,0,0],"width":1.2},"media":[{"id":"demo","file":"media-demo.mp4","kind":"video","pos":[6.8,1.906,-10.394],"normal":[0,0,1],"width":2.06,"loop":true}],"views":[{"name":"Zing at the desk","pos":[5.6,1.5,-5.3],"target":[6.4,1.15,-6.7]}],"notes":[{"id":"n1","pos":[6.8,1.9,-10.4],"title":"Projector screen","text":"A 2.06 m wide screen in front of the whiteboard. The lesson video loops here."}],"plan":"plan.png","attachments":[],"layouts":{"file":"layouts.json","default":"lecture","options":[{"key":"lecture","name":"Lecture"},{"key":"activity","name":"Activity time"}]},"modes":{"default":"orbit","walk":true,"fly":true,"orbit":true}},"files":"walkable/","model":"model.js?v=mv4y6jsq"};</script>
 <script type="importmap">{ "imports": { "three": "https://unpkg.com/three@0.170.0/build/three.module.js", "three/addons/": "https://unpkg.com/three@0.170.0/examples/jsm/", "three-mesh-bvh": "https://unpkg.com/three-mesh-bvh@0.7.8/build/index.module.js" } }</script>
 <script type="module">
-import { Walkable } from './walkable/js/engine.js?v=mv4xvyk9';
-import { contrast } from './walkable/js/schema.js?v=mv4xvyk9';
-import { ic } from './walkable/js/api.js?v=mv4xvyk9';
+import { Walkable } from './walkable/js/engine.js?v=mv4y6jsq';
+import { contrast } from './walkable/js/schema.js?v=mv4y6jsq';
+import { ic } from './walkable/js/api.js?v=mv4y6jsq';
 const $ = (id) => document.getElementById(id);
 const STATIC = window.WALKABLE_STATIC || null;
 const slug = STATIC ? 'static' : location.pathname.split('/').filter(Boolean)[1];
@@ -261,7 +263,7 @@ let touchHintShown = false;
 function updateHint() {
   const m = engine.mode; const h = $('hint'); if (m === 'orbit') { h.hidden = true; return; }
   if (isTouch) { if (touchHintShown) return; touchHintShown = true; h.innerHTML = 'Drag to look around<small>Use the circle to walk</small>'; h.hidden = false; setTimeout(() => h.hidden = true, 2800); return; }
-  h.hidden = engine.walk.locked; const verb = engine.walk.lockFailed ? 'Drag' : 'Click'; h.innerHTML = m === 'walk' ? verb + ' to look around<small>W A S D to walk · Shift to go faster · Esc to stop</small>' : verb + ' to look around<small>W A S D to move · E up · Q down · Esc to stop</small>';
+  h.hidden = engine.walk.locked; const verb = engine.walk.lockFailed ? 'Drag' : 'Click'; h.innerHTML = m === 'walk' ? verb + ' to look around<small>W A S D to walk · Click a door to open it · Esc to stop</small>' : verb + ' to look around<small>W A S D to move · E up · Q down · Esc to stop</small>';
 }
 // notes
 let notesOn = true; const markerEls = new Map(); let openCard = null;

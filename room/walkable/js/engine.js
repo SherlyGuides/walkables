@@ -90,7 +90,7 @@ export class Walkable {
     if (this.modelRoot) { this.modelGroup.remove(this.modelRoot); this.modelRoot = null; }
     if (this.collider) { this.scene.remove(this.collider); this.collider.geometry.dispose(); this.collider = null; }
     for (const o of [this.ceiling, this.ground, this.grid]) if (o) this.scene.remove(o);
-    this.ceiling = this.ground = this.grid = null; this.mixer = null; this.select(null);
+    this.ceiling = this.ground = this.grid = null; this.mixer = null; this.doors = null; this.doorMeshes = []; this.select(null);
   }
   // Suggest a unit scale from the raw size: GLB should be metres; exporters sometimes leave mm or cm.
   static suggestScale(rawSize) { const m = Math.max(...rawSize); if (m > 2000) return 0.001; if (m > 200) return 0.01; return 1; }
@@ -101,7 +101,7 @@ export class Walkable {
     this.modelGroup.updateMatrixWorld(true);
     const b = this.bounds; b.box.setFromObject(this.modelGroup); b.box.getCenter(b.center); b.box.getSize(b.size); b.radius = Math.max(b.size.x, b.size.y, b.size.z) || 1;
     this.camera.near = Math.max(0.02, b.radius / 2000); this.camera.far = b.radius * 20; this.camera.updateProjectionMatrix();
-    this.invalidateCollider(); this.buildHelpers(); this.placeSun();
+    this.doors = null; this.invalidateCollider(); this.buildHelpers(); this.placeSun();
     if (this.mixer) this.mixer.update(0);
   }
   buildHelpers() {
@@ -257,17 +257,113 @@ export class Walkable {
   unlock() { if (document.pointerLockElement === this.canvas) document.exitPointerLock(); }
   invalidateCollider() { if (this.collider) { this.scene.remove(this.collider); this.collider.geometry.dispose(); this.collider = null; } if (this.mode === 'walk' && this.modelRoot) this.collider = this.buildCollider(); }
   buildCollider() {
-    const geos = []; this.modelGroup.updateMatrixWorld(true);
+    const geos = []; this.modelGroup.updateMatrixWorld(true); this.findDoors();
     this.modelRoot.traverse(o => {
       if (!o.isMesh || o.isSkinnedMesh || !o.visible) return;
       const s = new THREE.Box3().setFromObject(o).getSize(new THREE.Vector3()); if (Math.max(s.x, s.y, s.z) < 0.25) return;   // small props do not block
-      if (this.data.player.doors !== false && Walkable.isDoorLeaf(s)) return;   // door leaves swing open for the walker
+      if (o.userData.door) return;   // every part of a door leaf is its own collider: it opens on a click
       let g = o.geometry.clone(); for (const k of Object.keys(g.attributes)) if (k !== 'position') g.deleteAttribute(k); g.morphAttributes = {};
       g = g.index ? g.toNonIndexed() : g; g.applyMatrix4(o.matrixWorld); geos.push(g);
     });
     if (!geos.length) return null;
     const merged = BufferGeometryUtils.mergeGeometries(geos, false); merged.boundsTree = new MeshBVH(merged);
     const m = new THREE.Mesh(merged, new THREE.MeshBasicMaterial({ visible: false })); m.name = 'collider'; this.scene.add(m); return m;
+  }
+  // ---------- doors: click to open ----------
+  // A leaf is the highest node that is still door-shaped, so frame, glass and handle swing together.
+  findDoors() {
+    if (this.doors) return this.doors; this.doors = []; if (this.modelRoot) this.modelRoot.traverse(o => { delete o.userData.door; }); if (this.data.player.doors === false || !this.modelRoot) return this.doors;
+    const seen = new Set(); const size = (o) => new THREE.Box3().setFromObject(o).getSize(new THREE.Vector3());
+    this.modelRoot.traverse(o => {
+      if (!o.isMesh || seen.has(o)) return; const s = size(o); if (Math.max(s.x, s.y, s.z) < 0.25 || !Walkable.isDoorLeaf(s)) return;
+      let leaf = o; while (leaf.parent && leaf.parent !== this.modelRoot && Walkable.isDoorLeaf(size(leaf.parent))) leaf = leaf.parent;
+      const meshes = []; leaf.traverse(m => { if (m.isMesh) { meshes.push(m); seen.add(m); } });
+      if (this.doors.some(d => d.leaf === leaf)) return;
+      const box = new THREE.Box3().setFromObject(leaf);
+      // a frame has a hole where the leaf goes: only a part that is solid at its middle swings (frames stay put and stay walkable)
+      const c = box.getCenter(new THREE.Vector3()); const thinX = (box.max.x - box.min.x) < (box.max.z - box.min.z); const dir = thinX ? new THREE.Vector3(1, 0, 0) : new THREE.Vector3(0, 0, 1);
+      const ray = new THREE.Raycaster(c.clone().addScaledVector(dir, -1), dir, 0, 2); const solid = [0, 0.15, -0.15].some(dy => { ray.ray.origin.y = c.y + dy * (box.max.y - box.min.y); return ray.intersectObjects(meshes, false).length > 0; });
+      if (solid) this.doors.push({ leaf, meshes, box, open: 0, target: 0, pivot: null });
+    });
+    // loose parts inside a leaf's outline (glazing bars, handles exported separately) belong to that leaf
+    if (this.doors.length) { const grown = this.doors.map(d => d.box.clone().expandByVector(new THREE.Vector3(0.03, 0.5, 0.03)));
+      this.modelRoot.traverse(o => { if (!o.isMesh || seen.has(o)) return; const bb = new THREE.Box3().setFromObject(o); const k = grown.findIndex(g => g.containsBox(bb)); if (k >= 0) { this.doors[k].meshes.push(o); (this.doors[k].extra ||= []).push(o); seen.add(o); } }); }
+    // double doors: two leaves side by side in one plane open together
+    for (const d of this.doors) d.pair = this.doors.find(o => o !== d && Walkable.pairOf(d.box, o.box)) || null;
+    // panels overlapping in one doorway (a leaf and its glass, exported as two parts) swing as one
+    for (const d of this.doors) d.linked = this.doors.filter(o => o !== d && o !== d.pair && Walkable.overlaps(d.box, o.box));
+    // sliding doors: a leaf overlapping a panel in the next plane over. The part that reaches the floor slides over the other, which is fixed glass.
+    const fixed = new Set();
+    for (const d of this.doors) { const other = d.linked.find(o => Math.abs(o.box.min.y - d.box.min.y) > 0.15 || Walkable.planeGap(d.box, o.box) > 0.005); if (!other) continue;
+      if (d.box.min.y <= other.box.min.y + 0.01) { const thinX = (d.box.max.x - d.box.min.x) < (d.box.max.z - d.box.min.z); const dc = d.box.getCenter(new THREE.Vector3()), oc = other.box.getCenter(new THREE.Vector3());
+        d.slide = thinX ? new THREE.Vector3(0, 0, Math.sign(oc.z - dc.z) * (d.box.max.z - d.box.min.z) * 0.95) : new THREE.Vector3(Math.sign(oc.x - dc.x) * (d.box.max.x - d.box.min.x) * 0.95, 0, 0); fixed.add(other); } }
+    for (const d of this.doors) if (d.slide) { d.passive = d.linked.filter(o => fixed.has(o) && !o.slide); d.blockBoxes = [d.box, ...d.passive.map(o => o.box)]; for (const o of d.passive) for (const m of o.meshes) o.owner = d; }
+    const passive = this.doors.filter(d => fixed.has(d) && !d.slide);
+    this.doors = this.doors.filter(d => !passive.includes(d));
+    for (const d of this.doors) d.linked = d.slide ? [] : d.linked.filter(o => this.doors.includes(o));
+    this.doorMeshes = this.doors.flatMap(d => [...d.meshes, ...(d.passive || []).flatMap(o => o.meshes)].map(m => (m.userData.door = d, m)));
+    return this.doors;
+  }
+  pickDoor(clientX, clientY) {
+    if (!this.doors || !this.doors.length) return null; const rect = this.canvas.getBoundingClientRect(); const ray = new THREE.Raycaster();
+    if (clientX == null) ray.setFromCamera(new THREE.Vector2(0, 0), this.camera); else ray.setFromCamera(new THREE.Vector2(((clientX - rect.left) / rect.width) * 2 - 1, -((clientY - rect.top) / rect.height) * 2 + 1), this.camera);
+    const hit = ray.intersectObjects(this.doorMeshes, false)[0]; if (!hit || hit.distance > (this.mode === 'orbit' ? 1e9 : 5)) return null;
+    if (this.collider) { ray.far = hit.distance; ray.firstHitOnly = true; if (ray.intersectObject(this.collider).length) return null; }   // a wall is in front of it
+    return { door: hit.object.userData.door, point: hit.point };
+  }
+  static pairOf(a, b) {
+    const thinX = (a.max.x - a.min.x) < (a.max.z - a.min.z); const close = (u, v) => Math.abs(u - v) < 0.06;
+    if (!close(a.min.y, b.min.y) || !close(a.max.y, b.max.y)) return false;
+    return thinX ? (close(a.min.x, b.min.x) || close(a.max.x, b.max.x)) && (close(a.max.z, b.min.z) || close(b.max.z, a.min.z))
+                 : (close(a.min.z, b.min.z) || close(a.max.z, b.max.z)) && (close(a.max.x, b.min.x) || close(b.max.x, a.min.x));
+  }
+  static planeGap(a, b) { const thinX = (a.max.x - a.min.x) < (a.max.z - a.min.z); return thinX ? Math.max(b.min.x - a.max.x, a.min.x - b.max.x, Math.abs((a.min.x + a.max.x) - (b.min.x + b.max.x)) / 2) : Math.max(b.min.z - a.max.z, a.min.z - b.max.z, Math.abs((a.min.z + a.max.z) - (b.min.z + b.max.z)) / 2); }
+  static overlaps(a, b) {
+    const thinX = (a.max.x - a.min.x) < (a.max.z - a.min.z); const ov = (a0, a1, b0, b1) => Math.min(a1, b1) - Math.max(a0, b0);
+    if (ov(a.min.y, a.max.y, b.min.y, b.max.y) < 1.2) return false;
+    return thinX ? ov(a.min.x, a.max.x, b.min.x, b.max.x) > -0.12 && ov(a.min.z, a.max.z, b.min.z, b.max.z) > 0.15
+                 : ov(a.min.z, a.max.z, b.min.z, b.max.z) > -0.12 && ov(a.min.x, a.max.x, b.min.x, b.max.x) > 0.15;
+  }
+  toggleDoor(door, point, withPair = true) {
+    point ||= door.box.getCenter(new THREE.Vector3());
+    if (withPair) {   // the leaf, its double-door partner and any panel overlapping either swing together, to one state
+      let pt = point; const set = new Set([door, ...(door.linked || [])]);
+      if (door.pair) { const o = door.pair.box, b = door.box; pt = new THREE.Vector3((Math.max(b.min.x, o.min.x) + Math.min(b.max.x, o.max.x)) / 2, (b.min.y + b.max.y) / 2, (Math.max(b.min.z, o.min.z) + Math.min(b.max.z, o.max.z)) / 2); set.add(door.pair); for (const l of door.pair.linked || []) set.add(l); }
+      if (!door.pair && set.size > 1) {   // overlapping panels share one hinge side: push the point out to the group's edge on the clicked side
+        const U = [...set].reduce((u, o) => u.union(o.box), door.box.clone()), c = U.getCenter(new THREE.Vector3()); const alongX = (U.max.x - U.min.x) > (U.max.z - U.min.z);
+        pt = pt.clone(); if (alongX) pt.x = pt.x > c.x ? U.max.x + 1 : U.min.x - 1; else pt.z = pt.z > c.z ? U.max.z + 1 : U.min.z - 1;
+      }
+      const target = door.target ? 0 : 1; for (const o of set) if (o.target !== target) this.toggleDoor(o, pt, false); return;
+    }
+    if (!door.pivot && door.slide) {   // sliding leaf: a group that moves along the track
+      const parent = door.leaf.parent; const pivot = new THREE.Group(); parent.add(pivot); pivot.updateMatrixWorld(true); pivot.attach(door.leaf); for (const m of door.extra || []) pivot.attach(m);
+      const pq = parent.getWorldQuaternion(new THREE.Quaternion()).invert(); const ps = parent.getWorldScale(new THREE.Vector3());
+      door.track = door.slide.clone().applyQuaternion(pq).divide(ps); door.base = pivot.position.clone(); door.pivot = pivot;
+    }
+    if (!door.pivot) {   // hinge on the vertical edge away from where it was clicked (the handle side), swing away from the viewer
+      const b = door.box, c = b.getCenter(new THREE.Vector3()); const alongX = (b.max.x - b.min.x) > (b.max.z - b.min.z);
+      const hinge = alongX ? new THREE.Vector3(point.x > c.x ? b.min.x : b.max.x, c.y, c.z) : new THREE.Vector3(c.x, c.y, point.z > c.z ? b.min.z : b.max.z);
+      const parent = door.leaf.parent; const pivot = new THREE.Group(); parent.add(pivot); pivot.position.copy(parent.worldToLocal(hinge.clone())); pivot.updateMatrixWorld(true); pivot.attach(door.leaf); for (const m of door.extra || []) pivot.attach(m);
+      const pq = parent.getWorldQuaternion(new THREE.Quaternion()).invert(); door.axis = new THREE.Vector3(0, 1, 0).applyQuaternion(pq).normalize(); door.base = pivot.quaternion.clone(); door.pivot = pivot;
+      const free = alongX ? new THREE.Vector3(point.x > c.x ? b.max.x : b.min.x, c.y, c.z) : new THREE.Vector3(c.x, c.y, point.z > c.z ? b.max.z : b.min.z);
+      const nudged = free.clone().sub(hinge).applyAxisAngle(new THREE.Vector3(0, 1, 0), 0.2).add(hinge);
+      door.sign = nudged.distanceTo(this.camera.position) > free.distanceTo(this.camera.position) ? 1 : -1;
+    }
+    door.target = door.target ? 0 : 1; if (reduced) door.open = door.target; this.emit('door', door);
+  }
+  stepDoors(dt) {
+    if (!this.doors) return;
+    for (const d of this.doors) { if (!d.pivot || d.open === d.target) continue; d.open = d.target > d.open ? Math.min(d.target, d.open + dt / 0.6) : Math.max(d.target, d.open - dt / 0.6);
+      if (d.slide) d.pivot.position.copy(d.base).addScaledVector(d.track, easeInOut(d.open));
+      else d.pivot.quaternion.copy(d.base).multiply(new THREE.Quaternion().setFromAxisAngle(d.axis, d.sign * easeInOut(d.open) * Math.PI / 2)); }
+  }
+  // closed doors block like walls: push the capsule out of the leaf's box
+  blockDoors(seg) {
+    if (!this.doors) return; const r = PLAYER.radius;
+    for (const d of this.doors) for (const b of (d.blockBoxes || [d.box])) { if (d.open > 0.05) continue; if (seg.end.y + r < b.min.y || seg.start.y - r > b.max.y) continue;
+      const p = seg.start; const dx1 = p.x - (b.min.x - r), dx2 = (b.max.x + r) - p.x, dz1 = p.z - (b.min.z - r), dz2 = (b.max.z + r) - p.z; if (dx1 <= 0 || dx2 <= 0 || dz1 <= 0 || dz2 <= 0) continue;
+      const m = Math.min(dx1, dx2, dz1, dz2); const v = m === dx1 ? [-dx1, 0] : m === dx2 ? [dx2, 0] : m === dz1 ? [0, -dz1] : [0, dz2];
+      seg.start.x += v[0]; seg.end.x += v[0]; seg.start.z += v[1]; seg.end.z += v[1]; }
   }
   // A door leaf: thin, door-width, door-height. Walls, frames and furniture fail at least one of these.
   static isDoorLeaf(s) { const thin = Math.min(s.x, s.z), wide = Math.max(s.x, s.z); return thin < 0.12 && wide >= 0.5 && wide <= 1.4 && s.y >= 1.8 && s.y <= 2.8; }
@@ -292,7 +388,7 @@ export class Walkable {
     t.box.makeEmpty(); t.box.expandByPoint(t.seg.start); t.box.expandByPoint(t.seg.end); t.box.min.addScalar(-PLAYER.radius); t.box.max.addScalar(PLAYER.radius);
     let grounded = false;
     c.geometry.boundsTree.shapecast({ intersectsBounds: b => b.intersectsBox(t.box), intersectsTriangle: tri => { const d = tri.closestPointToSegment(t.seg, t.tri, t.v); if (d < PLAYER.radius) { const depth = PLAYER.radius - d; const dir = t.v.sub(t.tri).normalize(); if (dir.y < -0.5) return; /* one-way ceilings: a stair can rise through a slab */ t.seg.start.addScaledVector(dir, depth); t.seg.end.addScaledVector(dir, depth); if (dir.y > 0.5) grounded = true; } } });
-    if (grounded) this.walk.velY = 0;
+    this.blockDoors(t.seg); if (grounded) this.walk.velY = 0;
     const feet = t.seg.start.clone(); feet.y -= PLAYER.radius;
     if (feet.y < this.bounds.box.min.y - 3) { const s = this.data.start || this.defaultStart(); feet.fromArray(s.pos); feet.y -= eye; this.walk.velY = 0; }   // fell out of the model
     this.camera.position.set(feet.x, feet.y + eye, feet.z);
@@ -307,11 +403,14 @@ export class Walkable {
     const c = this.canvas; c.tabIndex = 0;
     document.addEventListener('pointerlockchange', () => { this.walk.locked = document.pointerLockElement === c; this.emit('lock', this.walk.locked); });
     c.addEventListener('mousemove', e => { if (this.walk.locked) this.look(e.movementX, e.movementY); });
-    c.addEventListener('pointerdown', e => { if (this.mode !== 'orbit') this.emit('interact'); if (this.mode !== 'orbit' && !this.walk.locked && e.pointerType !== 'mouse') this.walk.look = { id: e.pointerId, x: e.clientX, y: e.clientY }; if (this.mode !== 'orbit' && e.pointerType === 'mouse' && !this.walk.locked) this.walk.look = { id: e.pointerId, x: e.clientX, y: e.clientY, moved: 0 }; });
+    c.addEventListener('pointerdown', e => { this._down = [e.clientX, e.clientY]; if (this.mode !== 'orbit') this.emit('interact'); if (this.mode !== 'orbit' && !this.walk.locked && e.pointerType !== 'mouse') this.walk.look = { id: e.pointerId, x: e.clientX, y: e.clientY }; if (this.mode !== 'orbit' && e.pointerType === 'mouse' && !this.walk.locked) this.walk.look = { id: e.pointerId, x: e.clientX, y: e.clientY, moved: 0 }; });
     c.addEventListener('pointermove', e => { const l = this.walk.look; if (!l || e.pointerId !== l.id) return; const dx = e.clientX - l.x, dy = e.clientY - l.y; l.x = e.clientX; l.y = e.clientY; if (l.moved !== undefined) l.moved += Math.abs(dx) + Math.abs(dy); this.look(dx * 1.6, dy * 1.6); });
     const end = () => { this.walk.look = null; }; c.addEventListener('pointerup', end); c.addEventListener('pointercancel', end);
     c.addEventListener('click', e => {
       if (this.pickHandler) { const hit = this.walk.locked ? this.pickCenter() : this.pick(e.clientX, e.clientY); this.pickHandler(hit, e); return; }
+      if (this._down && Math.hypot(e.clientX - this._down[0], e.clientY - this._down[1]) > 6 && !this.walk.locked) return;   // that was a drag, not a click
+      if (!this.doors && this.modelRoot) this.findDoors();
+      const dh = this.walk.locked ? this.pickDoor() : this.pickDoor(e.clientX, e.clientY); if (dh) { this.toggleDoor(dh.door, dh.point); return; }
       if (this.mode !== 'orbit' && !this.walk.locked && !isTouch) this.lock();
     });
     addEventListener('keydown', e => { if (e.target && /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return; this.walk.keys[e.code] = true; if (e.code.startsWith('Shift')) this.walk.run = true; if (e.code === 'Escape' && this.mode !== 'orbit' && !this.walk.locked) this.setMode('orbit'); if (e.code === 'Space' && this.mode !== 'orbit') e.preventDefault(); });
@@ -352,7 +451,7 @@ export class Walkable {
     if (c.width !== Math.floor(w * pr) || c.height !== Math.floor(h * pr)) { r.setSize(w, h, false); this.camera.aspect = w / h; this.camera.updateProjectionMatrix(); }
     const dt = Math.min(this.clock.getDelta(), 0.05);
     if (this.mixer && this.data.model.animations !== false) this.mixer.update(dt);
-    this.stepLayout(performance.now());
+    this.stepLayout(performance.now()); this.stepDoors(dt);
     if (this.tween) { const k = Math.min(1, (performance.now() - this.tween.start) / this.tween.dur), e = easeInOut(k); this.camera.position.lerpVectors(this.tween.p0, this.tween.p1, e); this.orbit.target.lerpVectors(this.tween.t0, this.tween.t1, e); if (k >= 1) this.tween = null; }
     if (this.mode === 'walk') { for (let i = 0; i < 3; i++) this.walkStep(dt / 3); } else if (this.mode === 'fly') this.flyStep(dt); else this.orbit.update();
     if (this.selectionHelper) this.selectionHelper.update();
