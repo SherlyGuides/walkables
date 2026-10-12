@@ -17,7 +17,7 @@ export function defaultScene() {
     brand: { firm: '', logo: null, accent: '#1f4e79', invertDark: false, watermark: true },
     model: { file: 'model.glb', scale: 1, upAxis: 'y', animations: true, stats: null },
     start: null,                                      // { pos:[x,y,z], yaw, pitch } eye position, set by the architect
-    player: { eye: 1.6, speed: 2.2 },
+    player: { eye: 1.6, speed: 2.2, doors: true },   // doors: walk through door leaves
     light: { preset: 'daylight', ...LIGHT_PRESETS.daylight, background: 'auto' },
     env: { ceiling: 'walk', ground: true, grid: true },   // ceiling: walk | always | off
     materials: {},                                    // 'mesh:<key>' | 'mat:<name>' -> { color, roughness, metalness, hidden }

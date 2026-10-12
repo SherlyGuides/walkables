@@ -261,6 +261,7 @@ export class Walkable {
     this.modelRoot.traverse(o => {
       if (!o.isMesh || o.isSkinnedMesh || !o.visible) return;
       const s = new THREE.Box3().setFromObject(o).getSize(new THREE.Vector3()); if (Math.max(s.x, s.y, s.z) < 0.25) return;   // small props do not block
+      if (this.data.player.doors !== false && Walkable.isDoorLeaf(s)) return;   // door leaves swing open for the walker
       let g = o.geometry.clone(); for (const k of Object.keys(g.attributes)) if (k !== 'position') g.deleteAttribute(k); g.morphAttributes = {};
       g = g.index ? g.toNonIndexed() : g; g.applyMatrix4(o.matrixWorld); geos.push(g);
     });
@@ -268,6 +269,8 @@ export class Walkable {
     const merged = BufferGeometryUtils.mergeGeometries(geos, false); merged.boundsTree = new MeshBVH(merged);
     const m = new THREE.Mesh(merged, new THREE.MeshBasicMaterial({ visible: false })); m.name = 'collider'; this.scene.add(m); return m;
   }
+  // A door leaf: thin, door-width, door-height. Walls, frames and furniture fail at least one of these.
+  static isDoorLeaf(s) { const thin = Math.min(s.x, s.z), wide = Math.max(s.x, s.z); return thin < 0.12 && wide >= 0.5 && wide <= 1.4 && s.y >= 1.8 && s.y <= 2.8; }
   moveInput() {
     const k = this.walk.keys; let mx = (k.KeyD || k.ArrowRight ? 1 : 0) - (k.KeyA || k.ArrowLeft ? 1 : 0), mz = (k.KeyW || k.ArrowUp ? 1 : 0) - (k.KeyS || k.ArrowDown ? 1 : 0);
     mx += this.walk.stick.x; mz -= this.walk.stick.y;
@@ -277,12 +280,18 @@ export class Walkable {
   walkStep(dt) {
     const c = this.collider; if (!c) return; const eye = this.data.player.eye; const sp = this.data.player.speed * (this.walk.run ? PLAYER.runMul : 1);
     this.walk.velY = Math.max(this.walk.velY - 9.8 * dt, -8);
-    const pos = this.camera.position.clone(); pos.y -= eye; pos.addScaledVector(this.moveInput(), sp * dt); pos.y += this.walk.velY * dt;
+    const pos = this.camera.position.clone(); pos.y -= eye; const mv = this.moveInput(); pos.addScaledVector(mv, sp * dt); pos.y += this.walk.velY * dt;
+    // stairs: a step up to 40 cm just ahead is climbed rather than treated as a wall
+    if (mv.lengthSq() > 0.01 && this.walk.velY > -1) {
+      const t2 = this._st || (this._st = { ray: new THREE.Raycaster(), o: new THREE.Vector3(), d: new THREE.Vector3(0, -1, 0) }); const feetY = this.camera.position.y - eye;
+      t2.o.copy(pos).addScaledVector(mv.clone().normalize(), PLAYER.radius + 0.06); t2.o.y = feetY + 0.45; t2.ray.set(t2.o, t2.d); t2.ray.far = 0.45; t2.ray.firstHitOnly = true;
+      const h = t2.ray.intersectObject(c)[0]; if (h) { const rise = t2.o.y - h.distance - feetY; if (rise > 0.02 && rise <= 0.4) { pos.y = Math.max(pos.y, feetY + rise + 0.01); this.walk.velY = 0; } }
+    }
     const t = this._t || (this._t = { box: new THREE.Box3(), seg: new THREE.Line3(), v: new THREE.Vector3(), tri: new THREE.Vector3() });
     t.seg.start.set(pos.x, pos.y + PLAYER.radius, pos.z); t.seg.end.set(pos.x, pos.y + PLAYER.height - PLAYER.radius, pos.z);
     t.box.makeEmpty(); t.box.expandByPoint(t.seg.start); t.box.expandByPoint(t.seg.end); t.box.min.addScalar(-PLAYER.radius); t.box.max.addScalar(PLAYER.radius);
     let grounded = false;
-    c.geometry.boundsTree.shapecast({ intersectsBounds: b => b.intersectsBox(t.box), intersectsTriangle: tri => { const d = tri.closestPointToSegment(t.seg, t.tri, t.v); if (d < PLAYER.radius) { const depth = PLAYER.radius - d; const dir = t.v.sub(t.tri).normalize(); t.seg.start.addScaledVector(dir, depth); t.seg.end.addScaledVector(dir, depth); if (dir.y > 0.5) grounded = true; } } });
+    c.geometry.boundsTree.shapecast({ intersectsBounds: b => b.intersectsBox(t.box), intersectsTriangle: tri => { const d = tri.closestPointToSegment(t.seg, t.tri, t.v); if (d < PLAYER.radius) { const depth = PLAYER.radius - d; const dir = t.v.sub(t.tri).normalize(); if (dir.y < -0.5) return; /* one-way ceilings: a stair can rise through a slab */ t.seg.start.addScaledVector(dir, depth); t.seg.end.addScaledVector(dir, depth); if (dir.y > 0.5) grounded = true; } } });
     if (grounded) this.walk.velY = 0;
     const feet = t.seg.start.clone(); feet.y -= PLAYER.radius;
     if (feet.y < this.bounds.box.min.y - 3) { const s = this.data.start || this.defaultStart(); feet.fromArray(s.pos); feet.y -= eye; this.walk.velY = 0; }   // fell out of the model
