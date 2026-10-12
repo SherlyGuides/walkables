@@ -21,7 +21,7 @@ export function defaultScene() {
     start: null,                                      // { pos:[x,y,z], yaw, pitch } eye position, set by the architect
     player: { eye: 1.6, speed: 2.2, doors: true },   // doors: walk through door leaves
     light: { preset: 'daylight', ...LIGHT_PRESETS.daylight, background: 'auto' },
-    env: { ceiling: 'walk', ground: true, grid: true, edges: false, garden: false },   // ceiling: walk | always | off; edges: soft lines on corners; garden: lawn, trees and sky outside
+    env: { ceiling: 'walk', ground: true, grid: true, edges: false, garden: false },   // ceiling: walk | always | off; edges: soft lines on corners; garden: lawn and sky outside
     materials: {},                                    // 'mesh:<key>' | 'mat:<name>' -> { color, roughness, metalness, hidden }
     plaque: null,                                     // { pos, normal, width }
     media: [],                                        // { id, file, kind:'image'|'video', pos, normal, width, loop }

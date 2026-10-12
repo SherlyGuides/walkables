@@ -308,7 +308,7 @@ export class Walkable {
     const merged = BufferGeometryUtils.mergeGeometries(geos, false); geos.forEach(g => g.dispose()); merged.boundsTree = new MeshBVH(merged);
     const m = new THREE.Mesh(merged, new THREE.MeshBasicMaterial({ visible: false })); m.name = 'collider'; this.scene.add(m); return m;
   }
-  // ---------- surroundings: a lawn, trees and a sky, so windows look out on a garden instead of a grey void ----------
+  // ---------- surroundings: a lawn and a sky, so windows look out on a garden instead of a grey void ----------
   buildGarden() {
     if (this.garden || !this.modelRoot) return; const b = this.bounds; const eye = this.data.player.eye;
     const floor = this.data.start ? this.data.start.pos[1] - eye : b.box.min.y;
@@ -321,22 +321,6 @@ export class Walkable {
     const grass = new THREE.CanvasTexture(c); grass.wrapS = grass.wrapT = THREE.RepeatWrapping; grass.repeat.set(R / 3, R / 3); grass.colorSpace = THREE.SRGBColorSpace; grass.anisotropy = 8;
     const lawn = new THREE.Mesh(new THREE.CircleGeometry(R, 64), new THREE.MeshStandardMaterial({ map: grass, roughness: 1, color: 0xffffff }));
     lawn.rotation.x = -Math.PI / 2; lawn.position.set(b.center.x, groundY, b.center.z); lawn.receiveShadow = true; g.add(lawn);
-    // trees and shrubs, kept clear of the building's footprint
-    const box = b.box.clone().expandByVector(new THREE.Vector3(5, 0, 5)); const spots = [];
-    for (let i = 0; spots.length < 70 && i < 4000; i++) { const a = rnd() * Math.PI * 2, d = b.radius * 0.6 + rnd() * R * 0.55; const px = b.center.x + Math.cos(a) * d, pz = b.center.z + Math.sin(a) * d;
-      if (px > box.min.x && px < box.max.x && pz > box.min.z && pz < box.max.z) continue; if (spots.some(p => Math.hypot(p[0] - px, p[1] - pz) < 4)) continue; spots.push([px, pz]); }
-    const trunk = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.18, 0.28, 1, 7), new THREE.MeshStandardMaterial({ color: 0x6b5442, roughness: 1 }), spots.length);
-    const crown = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1, 1), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.95, flatShading: true }), spots.length * 2);
-    const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), col = new THREE.Color(); let k = 0;
-    spots.forEach(([px, pz], i) => { const h = 5 + rnd() * 6, cr = 1.8 + rnd() * 1.8;
-      m4.compose(new THREE.Vector3(px, groundY + h * 0.35, pz), q, new THREE.Vector3(1, h * 0.7, 1)); trunk.setMatrixAt(i, m4);
-      for (let j = 0; j < 2; j++) { const s2 = cr * (j ? 0.75 : 1); m4.compose(new THREE.Vector3(px + (rnd() - 0.5) * 1.2, groundY + h * (j ? 0.95 : 0.78), pz + (rnd() - 0.5) * 1.2), new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), rnd() * 6), new THREE.Vector3(s2, s2 * 0.85, s2));
-        crown.setMatrixAt(k, m4); crown.setColorAt(k, col.setHSL(0.23 + rnd() * 0.08, 0.26 + rnd() * 0.16, 0.24 + rnd() * 0.12)); k++; } });
-    const shrubs = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1, 1), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, flatShading: true }), 90); let n = 0;
-    for (let i = 0; n < 90 && i < 3000; i++) { const a = rnd() * Math.PI * 2, d = b.radius * 0.55 + rnd() * R * 0.4; const px = b.center.x + Math.cos(a) * d, pz = b.center.z + Math.sin(a) * d;
-      if (px > box.min.x - 1 && px < box.max.x + 1 && pz > box.min.z - 1 && pz < box.max.z + 1) continue; const s3 = 0.6 + rnd() * 0.9;
-      m4.compose(new THREE.Vector3(px, groundY + s3 * 0.5, pz), q, new THREE.Vector3(s3 * 1.3, s3, s3 * 1.3)); shrubs.setMatrixAt(n, m4); shrubs.setColorAt(n, col.setHSL(0.26 + rnd() * 0.06, 0.28, 0.22 + rnd() * 0.08)); n++; }
-    shrubs.count = n; for (const im of [trunk, crown, shrubs]) { im.instanceMatrix.needsUpdate = true; if (im.instanceColor) im.instanceColor.needsUpdate = true; im.castShadow = false; im.receiveShadow = true; g.add(im); }
     // sky: blue overhead, pale at the horizon, and a light haze that hides where the lawn ends
     const sc = document.createElement('canvas'); sc.width = 4; sc.height = 256; const sx = sc.getContext('2d'); const gr = sx.createLinearGradient(0, 0, 0, 256);
     gr.addColorStop(0, '#7fb2df'); gr.addColorStop(0.45, '#bcd8ef'); gr.addColorStop(0.5, '#e6eef2'); gr.addColorStop(1, '#cfdcc4'); sx.fillStyle = gr; sx.fillRect(0, 0, 4, 256);
