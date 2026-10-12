@@ -192,20 +192,21 @@ async function start() {
   data = link.scene; files = link.files;
   const b = data.brand || {}; document.title = (data.name || 'Untitled') + (b.firm ? ' · ' + b.firm : '');
   $('arriveName').textContent = data.name || ''; if (b.logo) { $('arriveLogo').src = files + b.logo + pq(); $('arriveLogo').alt = b.firm || ''; $('arriveLogo').hidden = false; } else if (b.firm) { $('arriveFirm').textContent = b.firm; $('arriveFirm').hidden = false; }
+  if (!engine) $('c').addEventListener('webglcontextlost', (ev) => { ev.preventDefault(); gate('missing', 'This model is too big for this browser', 'The phone ran out of graphics memory. Open the link on a laptop or an Android phone, or ask your architect for a lighter version.'); });
   engine ||= new Walkable($('c')); window.__viewer = engine; engine.applyScene(data); data = engine.data; applyBrand();
   if (!STATIC) fetch(`/api/links/${slug}/open`, { method: 'POST', headers: { 'content-type': 'application/json', ...(pin ? { 'x-pin': pin } : {}) }, body: JSON.stringify({ vid }) }).catch(() => {});
   try {
     const modelFile = STATIC?.model || data.model.file; const parts = STATIC?.parts || [modelFile];   // large models ship split into parts and are joined byte for byte
-    let total = STATIC?.size || 0; const chunks = []; let got = 0;
+    let total = STATIC?.size || 0; let chunks = []; let got = 0; let whole = total ? new Uint8Array(total) : null;   // parts go straight into one buffer: no second copy
     for (const part of parts) {
     const r = await fetch(files + part, { headers: pin ? { 'x-pin': pin } : {} }); if (!r.ok) throw new Error('model');
     if (parts.length === 1) total = +r.headers.get('content-length') || 0; const reader = r.body.getReader();
-    for (;;) { const { done, value } = await reader.read(); if (done) break; chunks.push(value); got += value.length; if (total) { const p = got / total; $('bar').style.width = (p * 92).toFixed(1) + '%'; $('pct').textContent = `${(got / 1048576 * (/\.js(\?|$)/.test(modelFile) ? 0.75 : 1)).toFixed(1)} of ${(total / 1048576 * (/\.js(\?|$)/.test(modelFile) ? 0.75 : 1)).toFixed(1)} MB`; } }
+    for (;;) { const { done, value } = await reader.read(); if (done) break; if (whole && got + value.length <= whole.length) whole.set(value, got); else chunks.push(value); got += value.length; if (total) { const p = got / total; $('bar').style.width = (p * 92).toFixed(1) + '%'; $('pct').textContent = `${(got / 1048576 * (/\.js(\?|$)/.test(modelFile) ? 0.75 : 1)).toFixed(1)} of ${(total / 1048576 * (/\.js(\?|$)/.test(modelFile) ? 0.75 : 1)).toFixed(1)} MB`; } }
     }
-    let buf = new Uint8Array(got); let o = 0; for (const c of chunks) { buf.set(c, o); o += c.length; }
+    let buf; if (whole && got === whole.length && !chunks.length) buf = whole; else { buf = new Uint8Array(got); let o = 0; if (whole) { buf.set(whole.subarray(0, Math.min(got, whole.length))); o = Math.min(got, whole.length); } for (const c of chunks) { buf.set(c, o); o += c.length; } } whole = null; chunks = [];
     $('pct').textContent = 'Setting up the room';
     if (/\.js(\?|$)/.test(modelFile)) { const t = new TextDecoder().decode(buf); const b64 = t.slice(t.indexOf('"') + 1, t.lastIndexOf('"')); buf = new Uint8Array(await (await fetch('data:application/octet-stream;base64,' + b64)).arrayBuffer()); }
-    await engine.loadModel(buf.buffer);
+    await engine.loadModel(buf.buffer); buf = null;   // the 3D library has its own copy now
     $('pct').textContent = 'Getting it ready for this device'; await new Promise(r => setTimeout(r, 30)); engine.optimizeForViewing();
   } catch (e) { console.error(e); gate('missing', 'The model could not be opened', 'Try again in a moment. If it keeps happening, let your architect know.'); return; }
   $('bar').style.width = '100%';

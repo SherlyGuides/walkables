@@ -76,6 +76,7 @@ export class Walkable {
       list.forEach(m => { if (!m) return; mats.add(m); m.side = THREE.DoubleSide; if (m.transparent) o.castShadow = false; for (const k of ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'emissiveMap', 'aoMap']) if (m[k]) texs.add(m[k]); });
       o.userData.origMaterial = o.material;
     });
+    if (Walkable.isIOS) Walkable.shrinkTextures(root, 1024);   // iOS gives a tab far less graphics memory than a laptop or Android
     this.modelGroup.add(root);
     const raw = new THREE.Box3().setFromObject(root); const rs = raw.getSize(new THREE.Vector3());
     const stats = { triangles: Math.round(tris), meshes, materials: mats.size, textures: texs.size, animations: this.animations.length, rawSize: [rs.x, rs.y, rs.z].map(v => +v.toFixed(3)), bytes: arrayBuffer.byteLength };
@@ -91,6 +92,13 @@ export class Walkable {
     if (this.collider) { this.scene.remove(this.collider); this.collider.geometry.dispose(); this.collider = null; }
     for (const o of [this.ceiling, this.ground, this.grid]) if (o) this.scene.remove(o);
     this.ceiling = this.ground = this.grid = null; this.edges = null; this.batched = false; this.mixer = null; this.doors = null; this.doorMeshes = []; this.select(null);
+  }
+  static get isIOS() { return /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1); }
+  static shrinkTextures(root, max) {
+    const done = new Set(); root.traverse(o => { if (!o.isMesh) return; for (const m of [].concat(o.material)) for (const k of ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'emissiveMap', 'aoMap', 'alphaMap']) {
+      const t = m && m[k]; if (!t || done.has(t) || !t.image) continue; done.add(t); const im = t.image, w = im.width, h = im.height; if (!w || !h || Math.max(w, h) <= max) continue;
+      const sc = max / Math.max(w, h), c = document.createElement('canvas'); c.width = Math.max(1, Math.round(w * sc)); c.height = Math.max(1, Math.round(h * sc)); c.getContext('2d').drawImage(im, 0, 0, c.width, c.height);
+      if (im.close) im.close(); t.image = c; t.needsUpdate = true; } });
   }
   // Suggest a unit scale from the raw size: GLB should be metres; exporters sometimes leave mm or cm.
   static suggestScale(rawSize) { const m = Math.max(...rawSize); if (m > 2000) return 0.001; if (m > 200) return 0.01; return 1; }
@@ -263,11 +271,14 @@ export class Walkable {
       if (!o.isMesh || o.isSkinnedMesh || !o.visible) return;
       const s = new THREE.Box3().setFromObject(o).getSize(new THREE.Vector3()); if (Math.max(s.x, s.y, s.z) < 0.25) return;   // small props do not block
       if (o.userData.door) return;   // every part of a door leaf is its own collider: it opens on a click
-      let g = o.geometry.clone(); for (const k of Object.keys(g.attributes)) if (k !== 'position') g.deleteAttribute(k); g.morphAttributes = {};
-      g = g.index ? g.toNonIndexed() : g; g.applyMatrix4(o.matrixWorld); geos.push(g);
+      const src = o.geometry, P = src.attributes.position, n = P.count, pos = new Float32Array(n * 3);   // positions only, kept indexed: a third of the memory of unpacked triangles
+      for (let i = 0; i < n; i++) { pos[i * 3] = P.getX(i); pos[i * 3 + 1] = P.getY(i); pos[i * 3 + 2] = P.getZ(i); }
+      const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+      if (src.index) g.setIndex(new THREE.BufferAttribute(new Uint32Array(src.index.array), 1)); else { const ix = new Uint32Array(n); for (let i = 0; i < n; i++) ix[i] = i; g.setIndex(new THREE.BufferAttribute(ix, 1)); }
+      g.applyMatrix4(o.matrixWorld); geos.push(g);
     });
     if (!geos.length) return null;
-    const merged = BufferGeometryUtils.mergeGeometries(geos, false); merged.boundsTree = new MeshBVH(merged);
+    const merged = BufferGeometryUtils.mergeGeometries(geos, false); geos.forEach(g => g.dispose()); merged.boundsTree = new MeshBVH(merged);
     const m = new THREE.Mesh(merged, new THREE.MeshBasicMaterial({ visible: false })); m.name = 'collider'; this.scene.add(m); return m;
   }
   // ---------- client link: fast drawing on weak laptops, and corner lines ----------
@@ -280,6 +291,7 @@ export class Walkable {
     if (this.data.layouts) return;   // layouts move named parts, so they stay separate
     const animated = new Set(); for (const c of this.animations || []) for (const t of c.tracks) animated.add(t.name.split('.')[0]);
     root.updateMatrixWorld(true); const inv = root.matrixWorld.clone().invert(); const buckets = new Map(); const tmp = new THREE.Box3(), cv = new THREE.Vector3();
+    const used = new Map(); root.traverse(o => { if (o.isMesh) used.set(o.geometry, (used.get(o.geometry) || 0) + 1); });
     root.traverse(o => {
       if (!o.isMesh || o.isSkinnedMesh || o.userData.door || !o.visible || Array.isArray(o.material) || o.name === 'batch') return;
       for (let a = o; a && a !== root; a = a.parent) if (animated.has(a.name)) return;
@@ -293,13 +305,18 @@ export class Walkable {
       if (list.length < 2) continue;
       const geos = list.map(o => { const g = o.geometry.index ? o.geometry.clone() : o.geometry.clone(); for (const k of Object.keys(g.attributes)) if (g.attributes[k].isInterleavedBufferAttribute) g.setAttribute(k, g.attributes[k].clone()); g.applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld)); return g; });
       let merged = null; try { merged = BufferGeometryUtils.mergeGeometries(geos, false); } catch {} geos.forEach(g => g.dispose()); if (!merged) continue;
-      const m = new THREE.Mesh(merged, mat); m.name = 'batch'; m.castShadow = list.some(o => o.castShadow); m.receiveShadow = true; root.add(m); draws++;
-      for (const o of list) o.parent.remove(o);
+      merged.computeBoundingSphere(); merged.computeBoundingBox(); Walkable.freeAfterUpload(merged);
+      const m = new THREE.Mesh(merged, mat); m.name = 'batch'; m.raycast = () => {}; m.castShadow = list.some(o => o.castShadow); m.receiveShadow = true; root.add(m); draws++;
+      for (const o of list) { o.parent.remove(o); if (!used.has(o.geometry) || used.get(o.geometry) <= 1) o.geometry.dispose(); else used.set(o.geometry, used.get(o.geometry) - 1); }
     }
+    // the parts left (doors, one-offs) still point into the downloaded file; give them their own copies so the file can be freed
+    root.traverse(o => { if (o.isMesh && o.name !== 'batch' && !o.isSkinnedMesh) { const g = o.geometry.clone(); g.computeBoundingSphere(); o.geometry = g; } });
     this.renderer.shadowMap.autoUpdate = false; this.renderer.shadowMap.needsUpdate = true;   // the room does not move: draw shadows once
     this.adaptive = { pr: Math.min(devicePixelRatio, 1.5), max: Math.min(devicePixelRatio, 1.5), t: 0, n: 0, good: 0 }; this.renderer.setPixelRatio(this.adaptive.pr);
     this.emit('optimized', { draws });
   }
+  // once a geometry is on the graphics chip, the browser's copy is only needed for picking, which batches do not use
+  static freeAfterUpload(g) { const drop = function () { this.array = null; }; for (const k of Object.keys(g.attributes)) g.attributes[k].onUpload(drop); if (g.index) g.index.onUpload(drop); }
   // thin soft lines where surfaces meet at a crease (walls, floors, joinery, furniture), like an architect's drawing
   buildEdges() {
     if (this.edges) { this.edges.visible = !!this.data.env.edges; return; }
@@ -308,10 +325,9 @@ export class Walkable {
     const group = new THREE.Group(); group.name = 'edges'; const buckets = new Map(); const tmp = new THREE.Box3(), sz = new THREE.Vector3(), cv = new THREE.Vector3();
     root.traverse(o => {
       if (!o.isMesh || o.isSkinnedMesh || !o.visible || o.name === 'batch') return; const g = o.geometry; const tris = (g.index ? g.index.count : g.attributes.position.count) / 3;
-      tmp.setFromObject(o); tmp.getSize(sz); if (tris > 4000 || Math.max(sz.x, sz.y, sz.z) < 0.5) return;   // dense or small objects would turn into scribble
+      tmp.setFromObject(o); tmp.getSize(sz); if (tris > 4000 || Math.max(sz.x, sz.y, sz.z) < 2.5 || o.userData.door) return;   // the building only: walls, ceilings, beams, floor edges
       const eg = new THREE.EdgesGeometry(g, 40); if (!eg.attributes.position.count) return;
       for (const m of Array.isArray(o.material) ? o.material : [o.material]) if (m && !m.polygonOffset) { m.polygonOffset = true; m.polygonOffsetFactor = 1; m.polygonOffsetUnits = 1; }
-      if (o.userData.door || o.isSkinnedMesh) { o.add(new THREE.LineSegments(eg, mat)); return; }   // door lines ride along with the door
       eg.applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld)); tmp.getCenter(cv); const key = Math.floor(cv.x / 8) + ',' + Math.floor(cv.y / 8) + ',' + Math.floor(cv.z / 8);
       let b = buckets.get(key); if (!b) buckets.set(key, b = []); b.push(eg);
     });
