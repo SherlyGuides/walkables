@@ -250,8 +250,8 @@ export class Walkable {
     this.walk.keys = {}; this.walk.stick.set(0, 0); this.applyEnv(); this.emit('mode', mode);
   }
   lock() {
-    const el = this.canvas; if (this.walk.lockFailed || document.pointerLockElement === el || !el.requestPointerLock) return;
-    const fail = () => { this.walk.lockFailed = true; this.emit('lock', false); };
+    const el = this.canvas; if (document.pointerLockElement === el || !el.requestPointerLock) return;
+    const fail = () => { this.walk.lockFailed = true; this.emit('lock', false); };   // drag to look meanwhile; the next click tries again
     try { let p; try { p = el.requestPointerLock({ unadjustedMovement: true }); } catch { p = el.requestPointerLock(); } if (p && p.catch) p.catch(fail); } catch (e) { fail(); }
   }
   unlock() { if (document.pointerLockElement === this.canvas) document.exitPointerLock(); }
@@ -454,7 +454,7 @@ export class Walkable {
 
   bindInput() {
     const c = this.canvas; c.tabIndex = 0;
-    document.addEventListener('pointerlockchange', () => { this.walk.locked = document.pointerLockElement === c; this.emit('lock', this.walk.locked); });
+    document.addEventListener('pointerlockchange', () => { this.walk.locked = document.pointerLockElement === c; if (this.walk.locked) this.walk.lockFailed = false; this.emit('lock', this.walk.locked); });
     c.addEventListener('mousemove', e => { if (this.walk.locked) this.look(e.movementX, e.movementY); });
     c.addEventListener('pointerdown', e => { this._down = [e.clientX, e.clientY]; if (this.mode !== 'orbit') this.emit('interact'); if (this.mode !== 'orbit' && !this.walk.locked && e.pointerType !== 'mouse') this.walk.look = { id: e.pointerId, x: e.clientX, y: e.clientY }; if (this.mode !== 'orbit' && e.pointerType === 'mouse' && !this.walk.locked) this.walk.look = { id: e.pointerId, x: e.clientX, y: e.clientY, moved: 0 }; });
     c.addEventListener('pointermove', e => { const l = this.walk.look; if (!l || e.pointerId !== l.id) return; const dx = e.clientX - l.x, dy = e.clientY - l.y; l.x = e.clientX; l.y = e.clientY; if (l.moved !== undefined) l.moved += Math.abs(dx) + Math.abs(dy); this.look(dx * 1.6, dy * 1.6); });
@@ -463,10 +463,12 @@ export class Walkable {
       if (this.pickHandler) { const hit = this.walk.locked ? this.pickCenter() : this.pick(e.clientX, e.clientY); this.pickHandler(hit, e); return; }
       if (this._down && Math.hypot(e.clientX - this._down[0], e.clientY - this._down[1]) > 6 && !this.walk.locked) return;   // that was a drag, not a click
       if (!this.doors && this.modelRoot) this.findDoors();
-      const dh = this.walk.locked ? this.pickDoor() : this.pickDoor(e.clientX, e.clientY); if (dh) { this.toggleDoor(dh.door, dh.point); return; }
-      if (this.mode !== 'orbit' && !this.walk.locked && !isTouch) this.lock();
+      const dh = this.walk.locked ? this.pickDoor() : this.pickDoor(e.clientX, e.clientY); if (dh) this.toggleDoor(dh.door, dh.point);
+      if (this.mode !== 'orbit' && !this.walk.locked && !isTouch) this.lock();   // the mouse steers until Esc
+      return;
     });
-    addEventListener('keydown', e => { if (e.target && /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return; this.walk.keys[e.code] = true; if (e.code.startsWith('Shift')) this.walk.run = true; if (e.code === 'Escape' && this.mode !== 'orbit' && !this.walk.locked) this.setMode('orbit'); if (e.code === 'Space' && this.mode !== 'orbit') e.preventDefault(); });
+    addEventListener('keydown', e => { if (e.target && /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return; this.walk.keys[e.code] = true;
+      if (e.code === 'KeyF' && this.mode !== 'orbit' && !e.repeat) { if (!this.doors && this.modelRoot) this.findDoors(); const dh = this.pickDoor(); if (dh) this.toggleDoor(dh.door, dh.point); } if (e.code.startsWith('Shift')) this.walk.run = true; if (e.code === 'Escape' && this.mode !== 'orbit' && !this.walk.locked) this.setMode('orbit'); if (e.code === 'Space' && this.mode !== 'orbit') e.preventDefault(); });
     addEventListener('keyup', e => { this.walk.keys[e.code] = false; if (e.code.startsWith('Shift')) this.walk.run = false; });
     addEventListener('blur', () => { this.walk.keys = {}; this.walk.run = false; });
   }
