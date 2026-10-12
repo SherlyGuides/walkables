@@ -9,7 +9,7 @@
 <meta property="og:url" content="https://sherlyguides.github.io/walkables/1st-floor/">
 <title>1st floor FINAL</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%231B1A16%22%20stroke-width%3D%222.2%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cstyle%3E%40media%20(prefers-color-scheme%3A%20dark)%7Bpath%7Bstroke%3A%23EDEBE5%7Dcircle%7Bfill%3A%2386BBA4%7D%7D%3C%2Fstyle%3E%3Cpath%20d%3D%22M9.5%2020.5H7.5a4%204%200%200%201-4-4v-9a4%204%200%200%201%204-4h9a4%204%200%200%201%204%204v9a4%204%200%200%201-4%204h-2%22%2F%3E%3Cpath%20d%3D%22M12%2021v-4.5a4.5%204.5%200%200%200-4.5-4.5%22%2F%3E%3Ccircle%20cx%3D%228.5%22%20cy%3D%228.5%22%20r%3D%222.2%22%20fill%3D%22%232F5E4E%22%20stroke%3D%22none%22%2F%3E%3C%2Fsvg%3E%0A" type="image/svg+xml">
-<link rel="stylesheet" href="walkable/css/walkable.css?v=mv53j5nj">
+<link rel="stylesheet" href="walkable/css/walkable.css?v=mv54mdn4">
 <style>
   html, body { height:100%; overflow:hidden; }
   body { position:relative; height:100dvh; }
@@ -131,7 +131,7 @@
     <span><span class="kbd">Esc</span></span><span>Back to Orbit</span>
     <span><span class="kbd">1</span><span class="kbd">2</span><span class="kbd">3</span></span><span>Orbit, Walk, Fly</span>
     <span><span class="kbd">Click</span></span><span>Aim with the mouse; click again for the cursor</span>
-    <span><span class="kbd">Scroll</span></span><span>Step forward and back in Walk</span>
+    <span class="wheelRow"><span class="kbd">Scroll</span></span><span class="wheelRow">Step forward and back in Walk</span>
     <span><span class="kbd">F</span></span><span>Open or close the door at the dot</span>
   </div>
   <div class="keys" id="keysTouch" hidden>
@@ -177,12 +177,12 @@
   <button class="accent lg" id="gateBtn" hidden>Open</button>
 </div></div>
 <div id="modal" class="modal" hidden role="dialog"><div class="bar"><strong id="modalTitle"></strong><span class="row" id="modalActions"></span></div><div class="mbody" id="modalBody"></div></div>
-<script>window.WALKABLE_ICONS = ''; window.WALKABLE_STATIC = {"scene":{"version":1,"name":"1st floor FINAL","caption":"","theme":"auto","brand":{"firm":"","logo":null,"accent":"#1f4e79","invertDark":false,"watermark":true},"model":{"file":"model.glb","scale":1,"upAxis":"y","animations":true,"stats":{"triangles":8004618,"meshes":13862,"materials":229,"textures":103,"animations":0,"rawSize":[39.977,12.962,52.989],"bytes":313144652}},"start":{"pos":[50,8.172,-203.75],"yaw":0.1745,"pitch":-0.05},"player":{"eye":1.448,"speed":2.2},"light":{"preset":"interior","sunElev":64,"sunAzim":215,"sunIntensity":2,"sunColor":"#fff3e2","ambient":0.34,"envIntensity":0.6,"exposure":0.92,"shadows":true,"background":"auto","interior":true,"tone":"neutral"},"env":{"ceiling":"walk","ground":true,"grid":false,"edges":true,"garden":true},"materials":{},"plaque":null,"media":[],"views":[],"notes":[],"plan":null,"attachments":[],"layouts":null,"modes":{"default":"walk","walk":true,"fly":true,"orbit":true}},"files":"walkable/","model":"model.glb?v=mv53j5nj","parts":["model.1.bin?v=mv53j5nj","model.2.bin?v=mv53j5nj"],"size":83727836};</script>
+<script>window.WALKABLE_ICONS = ''; window.WALKABLE_STATIC = {"scene":{"version":1,"name":"1st floor FINAL","caption":"","theme":"auto","brand":{"firm":"","logo":null,"accent":"#1f4e79","invertDark":false,"watermark":true},"model":{"file":"model.glb","scale":1,"upAxis":"y","animations":true,"stats":{"triangles":8004618,"meshes":13862,"materials":229,"textures":103,"animations":0,"rawSize":[39.977,12.962,52.989],"bytes":313144652}},"start":{"pos":[50,8.172,-203.75],"yaw":0.1745,"pitch":-0.05},"player":{"eye":1.448,"speed":2.2,"wheel":false},"light":{"preset":"interior","sunElev":64,"sunAzim":215,"sunIntensity":2,"sunColor":"#fff3e2","ambient":0.34,"envIntensity":0.6,"exposure":0.92,"shadows":true,"background":"auto","interior":true,"tone":"neutral"},"env":{"ceiling":"walk","ground":true,"grid":false,"edges":true,"garden":true},"materials":{},"plaque":null,"media":[],"views":[],"notes":[],"plan":null,"attachments":[],"layouts":null,"modes":{"default":"walk","walk":true,"fly":true,"orbit":true}},"files":"walkable/","model":"model.glb?v=mv54mdn4","parts":["model.1.bin?v=mv54mdn4","model.2.bin?v=mv54mdn4"],"size":83727836};</script>
 <script type="importmap">{ "imports": { "three": "https://unpkg.com/three@0.170.0/build/three.module.js", "three/addons/": "https://unpkg.com/three@0.170.0/examples/jsm/", "three-mesh-bvh": "https://unpkg.com/three-mesh-bvh@0.7.8/build/index.module.js" } }</script>
 <script type="module">
-import { Walkable } from './walkable/js/engine.js?v=mv53j5nj';
-import { contrast } from './walkable/js/schema.js?v=mv53j5nj';
-import { ic } from './walkable/js/api.js?v=mv53j5nj';
+import { Walkable } from './walkable/js/engine.js?v=mv54mdn4';
+import { contrast } from './walkable/js/schema.js?v=mv54mdn4';
+import { ic } from './walkable/js/api.js?v=mv54mdn4';
 const $ = (id) => document.getElementById(id);
 const STATIC = window.WALKABLE_STATIC || null;
 const slug = STATIC ? 'static' : location.pathname.split('/').filter(Boolean)[1];
@@ -255,6 +255,7 @@ function welcome() {
 // ---------- the tour: four short steps, each one moves on when the visitor has done it ----------
 const tourKey = 'walkable.tour.' + (STATIC ? location.pathname : slug); let tourOn = false;
 function setupTour() {
+  if (data.player.wheel === false) document.querySelectorAll('.wheelRow').forEach(el => el.hidden = true);
   let seen = false; try { seen = localStorage.getItem(tourKey) === '1'; } catch {}
   $('tourAgain').onclick = () => { $('helpSheet').hidden = true; if (engine.mode !== 'walk' && data.modes.walk !== false) engine.setMode('walk'); startTour(); };
   if (seen || data.modes.walk === false) return;
@@ -267,7 +268,8 @@ function startTour() {
     isTouch ? { title: 'Look around', text: 'Drag anywhere on the screen to turn your head.', keys: '', until: 'look' }
             : { title: 'Look around', text: 'Click once on the room and the mouse aims your view. Click again to get your cursor back.', keys: K('Click') + ' aim &nbsp;' + K('Click') + ' cursor', until: 'look' },
     isTouch ? { title: 'Walk', text: 'Put your thumb on the circle at the bottom left and push the way you want to go.', keys: '', until: 'walk', glow: 'stick' }
-            : { title: 'Walk', text: 'Walk with the keys, or scroll the mouse wheel to step forward and back. Walls stop you; stairs carry you up.', keys: K('W', 'A', 'S', 'D') + ' or ' + K('Scroll') + ' &nbsp;' + K('Shift') + ' faster', until: 'walk' },
+            : data.player.wheel !== false ? { title: 'Walk', text: 'Walk with the keys, or scroll the mouse wheel to step forward and back. Walls stop you; stairs carry you up.', keys: K('W', 'A', 'S', 'D') + ' or ' + K('Scroll') + ' &nbsp;' + K('Shift') + ' faster', until: 'walk' }
+            : { title: 'Walk', text: 'Walk with the keys. Hold Shift to go faster. Walls stop you; stairs carry you up.', keys: K('W', 'A', 'S', 'D') + ' &nbsp;' + K('Shift') + ' faster', until: 'walk' },
     hasDoors && (isTouch ? { title: 'Open doors', text: 'Tap a door to open or close it.' + (hasAuto ? ' The main entrance opens by itself as you walk up.' : ''), keys: '', until: 'door' }
             : { title: 'Open doors', text: 'Click a door to open it. While aiming with the mouse, look at a door and press F.' + (hasAuto ? ' The main entrance opens by itself as you walk up.' : ''), keys: K('Click') + ' a door &nbsp;or&nbsp; ' + K('F'), until: 'door' }),
     { title: 'Switch views', text: 'Orbit shows the whole floor from above, Walk puts you inside, Fly lets you float. ' + (data.plan ? 'Plan opens the floor plan. ' : '') + 'The ? at the top right has these tips any time.', keys: isTouch ? '' : K('1', '2', '3') + ' Orbit, Walk, Fly', until: null, glow: 'pill' },
@@ -333,7 +335,7 @@ let touchHintShown = false;
 function updateHint() {
   const m = engine.mode; const h = $('hint'); if (m === 'orbit' || tourOn) { h.hidden = true; return; }   // the tour says it better while it is open
   if (isTouch) { if (touchHintShown) return; touchHintShown = true; h.innerHTML = 'Drag to look around<small>Use the circle to walk</small>'; h.hidden = false; setTimeout(() => h.hidden = true, 2800); return; }
-  h.hidden = engine.walk.locked; const verb = engine.walk.lockFailed ? 'Drag' : 'Click'; h.innerHTML = m === 'walk' ? verb + ' to aim with the mouse<small>Click again for the cursor · W A S D or scroll to walk · F opens a door</small>' : verb + ' to look around<small>W A S D to move · E up · Q down · Esc to stop</small>';
+  h.hidden = engine.walk.locked; const verb = engine.walk.lockFailed ? 'Drag' : 'Click'; h.innerHTML = m === 'walk' ? verb + ' to aim with the mouse<small>Click again for the cursor · W A S D ' + (data.player.wheel !== false ? 'or scroll ' : '') + 'to walk · F opens a door</small>' : verb + ' to look around<small>W A S D to move · E up · Q down · Esc to stop</small>';
 }
 // notes
 let notesOn = true; const markerEls = new Map(); let openCard = null;

@@ -139,7 +139,7 @@
     <span><span class="kbd">Esc</span></span><span>Back to Orbit</span>
     <span><span class="kbd">1</span><span class="kbd">2</span><span class="kbd">3</span></span><span>Orbit, Walk, Fly</span>
     <span><span class="kbd">Click</span></span><span>Aim with the mouse; click again for the cursor</span>
-    <span><span class="kbd">Scroll</span></span><span>Step forward and back in Walk</span>
+    <span class="wheelRow"><span class="kbd">Scroll</span></span><span class="wheelRow">Step forward and back in Walk</span>
     <span><span class="kbd">F</span></span><span>Open or close the door at the dot</span>
   </div>
   <div class="keys" id="keysTouch" hidden>
@@ -263,6 +263,7 @@ function welcome() {
 // ---------- the tour: four short steps, each one moves on when the visitor has done it ----------
 const tourKey = 'walkable.tour.' + (STATIC ? location.pathname : slug); let tourOn = false;
 function setupTour() {
+  if (data.player.wheel === false) document.querySelectorAll('.wheelRow').forEach(el => el.hidden = true);
   let seen = false; try { seen = localStorage.getItem(tourKey) === '1'; } catch {}
   $('tourAgain').onclick = () => { $('helpSheet').hidden = true; if (engine.mode !== 'walk' && data.modes.walk !== false) engine.setMode('walk'); startTour(); };
   if (seen || data.modes.walk === false) return;
@@ -275,7 +276,8 @@ function startTour() {
     isTouch ? { title: 'Look around', text: 'Drag anywhere on the screen to turn your head.', keys: '', until: 'look' }
             : { title: 'Look around', text: 'Click once on the room and the mouse aims your view. Click again to get your cursor back.', keys: K('Click') + ' aim &nbsp;' + K('Click') + ' cursor', until: 'look' },
     isTouch ? { title: 'Walk', text: 'Put your thumb on the circle at the bottom left and push the way you want to go.', keys: '', until: 'walk', glow: 'stick' }
-            : { title: 'Walk', text: 'Walk with the keys, or scroll the mouse wheel to step forward and back. Walls stop you; stairs carry you up.', keys: K('W', 'A', 'S', 'D') + ' or ' + K('Scroll') + ' &nbsp;' + K('Shift') + ' faster', until: 'walk' },
+            : data.player.wheel !== false ? { title: 'Walk', text: 'Walk with the keys, or scroll the mouse wheel to step forward and back. Walls stop you; stairs carry you up.', keys: K('W', 'A', 'S', 'D') + ' or ' + K('Scroll') + ' &nbsp;' + K('Shift') + ' faster', until: 'walk' }
+            : { title: 'Walk', text: 'Walk with the keys. Hold Shift to go faster. Walls stop you; stairs carry you up.', keys: K('W', 'A', 'S', 'D') + ' &nbsp;' + K('Shift') + ' faster', until: 'walk' },
     hasDoors && (isTouch ? { title: 'Open doors', text: 'Tap a door to open or close it.' + (hasAuto ? ' The main entrance opens by itself as you walk up.' : ''), keys: '', until: 'door' }
             : { title: 'Open doors', text: 'Click a door to open it. While aiming with the mouse, look at a door and press F.' + (hasAuto ? ' The main entrance opens by itself as you walk up.' : ''), keys: K('Click') + ' a door &nbsp;or&nbsp; ' + K('F'), until: 'door' }),
     { title: 'Switch views', text: 'Orbit shows the whole floor from above, Walk puts you inside, Fly lets you float. ' + (data.plan ? 'Plan opens the floor plan. ' : '') + 'The ? at the top right has these tips any time.', keys: isTouch ? '' : K('1', '2', '3') + ' Orbit, Walk, Fly', until: null, glow: 'pill' },
@@ -341,7 +343,7 @@ let touchHintShown = false;
 function updateHint() {
   const m = engine.mode; const h = $('hint'); if (m === 'orbit' || tourOn) { h.hidden = true; return; }   // the tour says it better while it is open
   if (isTouch) { if (touchHintShown) return; touchHintShown = true; h.innerHTML = 'Drag to look around<small>Use the circle to walk</small>'; h.hidden = false; setTimeout(() => h.hidden = true, 2800); return; }
-  h.hidden = engine.walk.locked; const verb = engine.walk.lockFailed ? 'Drag' : 'Click'; h.innerHTML = m === 'walk' ? verb + ' to aim with the mouse<small>Click again for the cursor · W A S D or scroll to walk · F opens a door</small>' : verb + ' to look around<small>W A S D to move · E up · Q down · Esc to stop</small>';
+  h.hidden = engine.walk.locked; const verb = engine.walk.lockFailed ? 'Drag' : 'Click'; h.innerHTML = m === 'walk' ? verb + ' to aim with the mouse<small>Click again for the cursor · W A S D ' + (data.player.wheel !== false ? 'or scroll ' : '') + 'to walk · F opens a door</small>' : verb + ' to look around<small>W A S D to move · E up · Q down · Esc to stop</small>';
 }
 // notes
 let notesOn = true; const markerEls = new Map(); let openCard = null;

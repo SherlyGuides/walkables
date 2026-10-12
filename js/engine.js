@@ -623,7 +623,7 @@ export class Walkable {
     c.addEventListener('pointerdown', e => { this._down = [e.clientX, e.clientY]; if (this.mode !== 'orbit') this.emit('interact'); if (this.mode !== 'orbit' && !this.walk.locked && e.pointerType !== 'mouse') this.walk.look = { id: e.pointerId, x: e.clientX, y: e.clientY }; if (this.mode !== 'orbit' && e.pointerType === 'mouse' && !this.walk.locked) this.walk.look = { id: e.pointerId, x: e.clientX, y: e.clientY, moved: 0 }; });
     c.addEventListener('pointermove', e => { const l = this.walk.look; if (!l || e.pointerId !== l.id) return; const dx = e.clientX - l.x, dy = e.clientY - l.y; l.x = e.clientX; l.y = e.clientY; if (l.moved !== undefined) l.moved += Math.abs(dx) + Math.abs(dy); this.look(dx * 1.6, dy * 1.6); });
     const end = () => { this.walk.look = null; }; c.addEventListener('pointerup', end); c.addEventListener('pointercancel', end);
-    c.addEventListener('wheel', e => { if (this.mode === 'orbit') return; e.preventDefault();   // in Walk and Fly the wheel steps forward and back
+    c.addEventListener('wheel', e => { if (this.mode === 'orbit' || this.data.player.wheel === false) return; e.preventDefault();   // in Walk and Fly the wheel steps forward and back
       const px = e.deltaY * (e.deltaMode === 1 ? 33 : e.deltaMode === 2 ? 400 : 1); this.walk.wheel = Math.max(-3, Math.min(3, (this.walk.wheel || 0) - Math.max(-0.6, Math.min(0.6, px * 0.005)))); }, { passive: false });
     c.addEventListener('click', e => {
       if (this.pickHandler) { const hit = this.walk.locked ? this.pickCenter() : this.pick(e.clientX, e.clientY); this.pickHandler(hit, e); return; }
