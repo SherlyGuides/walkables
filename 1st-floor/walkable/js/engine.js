@@ -76,7 +76,8 @@ export class Walkable {
       list.forEach(m => { if (!m) return; mats.add(m); m.side = THREE.DoubleSide; if (m.transparent) o.castShadow = false; for (const k of ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'emissiveMap', 'aoMap']) if (m[k]) texs.add(m[k]); });
       o.userData.origMaterial = o.material;
     });
-    if (Walkable.isIOS) Walkable.shrinkTextures(root, 1024);   // iOS gives a tab far less graphics memory than a laptop or Android
+    if (Walkable.isIOS) Walkable.shrinkTextures(root, 1024);
+    { const an = Math.min(8, this.renderer.capabilities.getMaxAnisotropy()); root.traverse(o => { if (o.isMesh) for (const m of [].concat(o.material)) for (const k of ['map', 'normalMap', 'roughnessMap']) if (m && m[k]) m[k].anisotropy = an; }); }   // sharp floors and walls at a slant   // iOS gives a tab far less graphics memory than a laptop or Android
     this.modelGroup.add(root);
     const raw = new THREE.Box3().setFromObject(root); const rs = raw.getSize(new THREE.Vector3());
     const stats = { triangles: Math.round(tris), meshes, materials: mats.size, textures: texs.size, animations: this.animations.length, rawSize: [rs.x, rs.y, rs.z].map(v => +v.toFixed(3)), bytes: arrayBuffer.byteLength };
@@ -312,7 +313,7 @@ export class Walkable {
     // the parts left (doors, one-offs) still point into the downloaded file; give them their own copies so the file can be freed
     root.traverse(o => { if (o.isMesh && o.name !== 'batch' && !o.isSkinnedMesh) { const g = o.geometry.clone(); g.computeBoundingSphere(); o.geometry = g; } });
     this.renderer.shadowMap.autoUpdate = false; this.renderer.shadowMap.needsUpdate = true;   // the room does not move: draw shadows once
-    this.adaptive = { pr: Math.min(devicePixelRatio, 1.5), max: Math.min(devicePixelRatio, 1.5), t: 0, n: 0, good: 0 }; this.renderer.setPixelRatio(this.adaptive.pr);
+    this.adaptive = { pr: Math.min(devicePixelRatio, 2), max: Math.min(devicePixelRatio, 2), t: 0, n: 0, good: 0 }; this.renderer.setPixelRatio(this.adaptive.pr);
     this.emit('optimized', { draws });
   }
   // once a geometry is on the graphics chip, the browser's copy is only needed for picking, which batches do not use
@@ -321,7 +322,7 @@ export class Walkable {
   buildEdges() {
     if (this.edges) { this.edges.visible = !!this.data.env.edges; return; }
     const root = this.modelRoot; if (!root) return; this.findDoors(); root.updateMatrixWorld(true); const inv = root.matrixWorld.clone().invert();   // doors first: their lines ride with them
-    const mat = this.edgeMaterial || (this.edgeMaterial = new THREE.LineBasicMaterial({ color: 0x1f1c17, transparent: true, opacity: 0.32, depthWrite: false }));
+    const mat = this.edgeMaterial || (this.edgeMaterial = new THREE.LineBasicMaterial({ color: 0x1f1c17, transparent: true, opacity: 0.45, depthWrite: false }));
     const group = new THREE.Group(); group.name = 'edges'; const buckets = new Map(); const tmp = new THREE.Box3(), sz = new THREE.Vector3(), cv = new THREE.Vector3();
     root.traverse(o => {
       if (!o.isMesh || o.isSkinnedMesh || !o.visible || o.name === 'batch') return; const g = o.geometry; const tris = (g.index ? g.index.count : g.attributes.position.count) / 3;
@@ -337,9 +338,9 @@ export class Walkable {
   // keep the frame rate up: lower the drawing resolution when frames are slow, raise it again when there is room
   adapt(dt) {
     const a = this.adaptive; if (!a || document.hidden) return; const now = performance.now(); a.t0 ||= now; a.n++; if (now - a.t0 < 1000) return; const fps = a.n * 1000 / (now - a.t0); a.t0 = now; a.n = 0;
-    if (fps < 28 && a.pr > 0.6) { a.pr = Math.max(0.6, a.pr - 0.2); a.good = 0; this.renderer.setPixelRatio(a.pr); }
-    else if (fps < 20 && a.pr <= 0.6 && this.renderer.shadowMap.enabled) { this.renderer.shadowMap.enabled = false; this.sun.castShadow = false; this.scene.traverse(o => { if (o.material) [].concat(o.material).forEach(m => m.needsUpdate = true); }); }
-    else if (fps > 55 && a.pr < a.max && ++a.good >= 3) { a.pr = Math.min(a.max, a.pr + 0.1); a.good = 0; this.renderer.setPixelRatio(a.pr); }
+    if (fps < 28 && a.pr > 0.75) { a.pr = Math.max(0.75, a.pr - 0.25); a.good = 0; this.renderer.setPixelRatio(a.pr); }
+    else if (fps < 20 && a.pr <= 0.75 && this.renderer.shadowMap.enabled) { this.renderer.shadowMap.enabled = false; this.sun.castShadow = false; this.scene.traverse(o => { if (o.material) [].concat(o.material).forEach(m => m.needsUpdate = true); }); }
+    else if (fps > 50 && a.pr < a.max && ++a.good >= 2) { a.pr = Math.min(a.max, a.pr + 0.25); a.good = 0; this.renderer.setPixelRatio(a.pr); }
   }
 
   // ---------- doors: click to open ----------
