@@ -90,7 +90,7 @@ export class Walkable {
     if (this.modelRoot) { this.modelGroup.remove(this.modelRoot); this.modelRoot = null; }
     if (this.collider) { this.scene.remove(this.collider); this.collider.geometry.dispose(); this.collider = null; }
     for (const o of [this.ceiling, this.ground, this.grid]) if (o) this.scene.remove(o);
-    this.ceiling = this.ground = this.grid = null; this.mixer = null; this.doors = null; this.doorMeshes = []; this.select(null);
+    this.ceiling = this.ground = this.grid = null; this.edges = null; this.batched = false; this.mixer = null; this.doors = null; this.doorMeshes = []; this.select(null);
   }
   // Suggest a unit scale from the raw size: GLB should be metres; exporters sometimes leave mm or cm.
   static suggestScale(rawSize) { const m = Math.max(...rawSize); if (m > 2000) return 0.001; if (m > 200) return 0.01; return 1; }
@@ -118,6 +118,7 @@ export class Walkable {
     const walking = this.mode === 'walk' || this.mode === 'fly';
     this.ceiling.visible = e.ceiling === 'always' || (e.ceiling === 'walk' && walking);
     this.ground.visible = !!e.ground; this.grid.visible = !!e.grid && !walking;
+    if (e.edges && !this.edges && this.modelRoot) this.buildEdges(); if (this.edges) this.edges.visible = !!e.edges;
   }
 
   // ---------- lights, theme ----------
@@ -210,7 +211,7 @@ export class Walkable {
     if (!this.modelRoot) return null; const rect = this.canvas.getBoundingClientRect();
     const ndc = new THREE.Vector2(((clientX - rect.left) / rect.width) * 2 - 1, -((clientY - rect.top) / rect.height) * 2 + 1);
     const ray = new THREE.Raycaster(); ray.setFromCamera(ndc, this.camera); ray.firstHitOnly = true;
-    const hits = ray.intersectObject(this.modelGroup, true).filter(h => h.object.visible);
+    const hits = ray.intersectObject(this.modelGroup, true).filter(h => h.object.isMesh && h.object.visible);
     if (!hits.length) return null; const h = hits[0]; const n = h.face ? h.face.normal.clone().transformDirection(h.object.matrixWorld).normalize() : new THREE.Vector3(0, 1, 0);
     if (n.dot(ray.ray.direction) > 0) n.negate();
     const om = Array.isArray(h.object.userData.origMaterial) ? h.object.userData.origMaterial[0] : h.object.userData.origMaterial;
@@ -269,10 +270,67 @@ export class Walkable {
     const merged = BufferGeometryUtils.mergeGeometries(geos, false); merged.boundsTree = new MeshBVH(merged);
     const m = new THREE.Mesh(merged, new THREE.MeshBasicMaterial({ visible: false })); m.name = 'collider'; this.scene.add(m); return m;
   }
+  // ---------- client link: fast drawing on weak laptops, and corner lines ----------
+  // Studio keeps every part separate so materials can be edited. The client link does not need that, so parts that share a
+  // material and an 8 m cell are drawn as one: 13,000 draws become about a thousand. The file itself is untouched.
+  optimizeForViewing() {
+    if (!this.modelRoot || this.batched) return; this.batched = true; const root = this.modelRoot;
+    this.findDoors(); if (!this.collider) this.collider = this.buildCollider();   // doors and collision come from the original parts
+    if (this.data.env.edges) this.buildEdges();
+    if (this.data.layouts) return;   // layouts move named parts, so they stay separate
+    const animated = new Set(); for (const c of this.animations || []) for (const t of c.tracks) animated.add(t.name.split('.')[0]);
+    root.updateMatrixWorld(true); const inv = root.matrixWorld.clone().invert(); const buckets = new Map(); const tmp = new THREE.Box3(), cv = new THREE.Vector3();
+    root.traverse(o => {
+      if (!o.isMesh || o.isSkinnedMesh || o.userData.door || !o.visible || Array.isArray(o.material) || o.name === 'batch') return;
+      for (let a = o; a && a !== root; a = a.parent) if (animated.has(a.name)) return;
+      const g = o.geometry; if (g.morphAttributes && Object.keys(g.morphAttributes).length) return;
+      const sig = Object.keys(g.attributes).sort().map(k => { const at = g.attributes[k]; return k + at.itemSize + at.array.constructor.name + (at.normalized ? 'n' : '') + (at.isInterleavedBufferAttribute ? 'i' : ''); }).join(',');
+      tmp.setFromObject(o).getCenter(cv); const key = o.material.uuid + '|' + sig + '|' + (g.index ? 1 : 0) + '|' + Math.floor(cv.x / 8) + ',' + Math.floor(cv.y / 8) + ',' + Math.floor(cv.z / 8);
+      let b = buckets.get(key); if (!b) buckets.set(key, b = { mat: o.material, list: [] }); b.list.push(o);
+    });
+    let draws = 0;
+    for (const { mat, list } of buckets.values()) {
+      if (list.length < 2) continue;
+      const geos = list.map(o => { const g = o.geometry.index ? o.geometry.clone() : o.geometry.clone(); for (const k of Object.keys(g.attributes)) if (g.attributes[k].isInterleavedBufferAttribute) g.setAttribute(k, g.attributes[k].clone()); g.applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld)); return g; });
+      let merged = null; try { merged = BufferGeometryUtils.mergeGeometries(geos, false); } catch {} geos.forEach(g => g.dispose()); if (!merged) continue;
+      const m = new THREE.Mesh(merged, mat); m.name = 'batch'; m.castShadow = list.some(o => o.castShadow); m.receiveShadow = true; root.add(m); draws++;
+      for (const o of list) o.parent.remove(o);
+    }
+    this.renderer.shadowMap.autoUpdate = false; this.renderer.shadowMap.needsUpdate = true;   // the room does not move: draw shadows once
+    this.adaptive = { pr: Math.min(devicePixelRatio, 1.5), max: Math.min(devicePixelRatio, 1.5), t: 0, n: 0, good: 0 }; this.renderer.setPixelRatio(this.adaptive.pr);
+    this.emit('optimized', { draws });
+  }
+  // thin soft lines where surfaces meet at a crease (walls, floors, joinery, furniture), like an architect's drawing
+  buildEdges() {
+    if (this.edges) { this.edges.visible = !!this.data.env.edges; return; }
+    const root = this.modelRoot; if (!root) return; this.findDoors(); root.updateMatrixWorld(true); const inv = root.matrixWorld.clone().invert();   // doors first: their lines ride with them
+    const mat = this.edgeMaterial || (this.edgeMaterial = new THREE.LineBasicMaterial({ color: 0x1f1c17, transparent: true, opacity: 0.32, depthWrite: false }));
+    const group = new THREE.Group(); group.name = 'edges'; const buckets = new Map(); const tmp = new THREE.Box3(), sz = new THREE.Vector3(), cv = new THREE.Vector3();
+    root.traverse(o => {
+      if (!o.isMesh || o.isSkinnedMesh || !o.visible || o.name === 'batch') return; const g = o.geometry; const tris = (g.index ? g.index.count : g.attributes.position.count) / 3;
+      tmp.setFromObject(o); tmp.getSize(sz); if (tris > 4000 || Math.max(sz.x, sz.y, sz.z) < 0.5) return;   // dense or small objects would turn into scribble
+      const eg = new THREE.EdgesGeometry(g, 40); if (!eg.attributes.position.count) return;
+      for (const m of Array.isArray(o.material) ? o.material : [o.material]) if (m && !m.polygonOffset) { m.polygonOffset = true; m.polygonOffsetFactor = 1; m.polygonOffsetUnits = 1; }
+      if (o.userData.door || o.isSkinnedMesh) { o.add(new THREE.LineSegments(eg, mat)); return; }   // door lines ride along with the door
+      eg.applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld)); tmp.getCenter(cv); const key = Math.floor(cv.x / 8) + ',' + Math.floor(cv.y / 8) + ',' + Math.floor(cv.z / 8);
+      let b = buckets.get(key); if (!b) buckets.set(key, b = []); b.push(eg);
+    });
+    for (const list of buckets.values()) { const merged = BufferGeometryUtils.mergeGeometries(list, false); list.forEach(g => g.dispose()); if (merged) group.add(new THREE.LineSegments(merged, mat)); }
+    root.add(group); this.edges = group; group.visible = !!this.data.env.edges;
+  }
+  // keep the frame rate up: lower the drawing resolution when frames are slow, raise it again when there is room
+  adapt(dt) {
+    const a = this.adaptive; if (!a || document.hidden) return; const now = performance.now(); a.t0 ||= now; a.n++; if (now - a.t0 < 1000) return; const fps = a.n * 1000 / (now - a.t0); a.t0 = now; a.n = 0;
+    if (fps < 28 && a.pr > 0.6) { a.pr = Math.max(0.6, a.pr - 0.2); a.good = 0; this.renderer.setPixelRatio(a.pr); }
+    else if (fps < 20 && a.pr <= 0.6 && this.renderer.shadowMap.enabled) { this.renderer.shadowMap.enabled = false; this.sun.castShadow = false; this.scene.traverse(o => { if (o.material) [].concat(o.material).forEach(m => m.needsUpdate = true); }); }
+    else if (fps > 55 && a.pr < a.max && ++a.good >= 3) { a.pr = Math.min(a.max, a.pr + 0.1); a.good = 0; this.renderer.setPixelRatio(a.pr); }
+  }
+
   // ---------- doors: click to open ----------
   // A leaf is the highest node that is still door-shaped, so frame, glass and handle swing together.
   findDoors() {
-    if (this.doors) return this.doors; this.doors = []; if (this.modelRoot) this.modelRoot.traverse(o => { delete o.userData.door; }); if (this.data.player.doors === false || !this.modelRoot) return this.doors;
+    if (this.doors) return this.doors; this.doors = []; this.modelGroup.updateMatrixWorld(true);   // the rays below need final positions, even before the first frame
+    if (this.modelRoot) this.modelRoot.traverse(o => { delete o.userData.door; }); if (this.data.player.doors === false || !this.modelRoot) return this.doors;
     const seen = new Set(); const size = (o) => new THREE.Box3().setFromObject(o).getSize(new THREE.Vector3());
     this.modelRoot.traverse(o => {
       if (!o.isMesh || seen.has(o)) return; const s = size(o); if (Math.max(s.x, s.y, s.z) < 0.25 || !Walkable.isDoorLeaf(s)) return;
@@ -286,7 +344,7 @@ export class Walkable {
       // a door stands in an opening: there is room on both faces. A panel fixed to a wall (cladding, a mirror) has the wall right behind it.
       const own = new Set(meshes); const thin = thinX ? box.max.x - box.min.x : box.max.z - box.min.z; const probe = new THREE.Raycaster(); probe.far = 0.2;
       const backed = [1, -1].some(sg => { let hits = 0; for (const [fy, fw] of [[0.3, 0.5], [0.5, 0.25], [0.5, 0.75], [0.7, 0.5]]) { const o = new THREE.Vector3(box.min.x + (box.max.x - box.min.x) * (thinX ? 0.5 : fw), box.min.y + (box.max.y - box.min.y) * fy, box.min.z + (box.max.z - box.min.z) * (thinX ? fw : 0.5));
-        o.addScaledVector(dir, sg * (thin / 2 + 0.005)); probe.set(o, dir.clone().multiplyScalar(sg)); if (probe.intersectObject(this.modelRoot, true).some(h => !own.has(h.object) && h.object.visible)) hits++; } return hits >= 3; });
+        o.addScaledVector(dir, sg * (thin / 2 + 0.005)); probe.set(o, dir.clone().multiplyScalar(sg)); if (probe.intersectObject(this.modelRoot, true).some(h => h.object.isMesh && !own.has(h.object) && h.object.visible)) hits++; } return hits >= 3; });
       if (solid && !backed) this.doors.push({ leaf, meshes, box, open: 0, target: 0, pivot: null });
     });
     // loose parts inside a leaf's outline (glazing bars, handles exported separately) belong to that leaf
@@ -407,6 +465,7 @@ export class Walkable {
     if (this.mode !== 'orbit') { const p = this.camera.position; for (const d of this.doors) if (d.auto) { const c = d.closedCenter || (d.closedCenter = d.box.getCenter(new THREE.Vector3()).add(d.closeShift || new THREE.Vector3()));
       const near = Math.hypot(p.x - c.x, p.z - c.z), dy = Math.abs(p.y - this.data.player.eye - d.box.min.y); if (dy < 1 && near < 2.5 && !d.target) { if (!d.pivot && d.slide) this.slidePivot(d); d.target = 1; } else if ((near > 3.5 || dy >= 1) && d.target && !d.held) d.target = 0; } }
     for (const d of this.doors) { if (!d.pivot || d.open === d.target) continue; d.open = d.target > d.open ? Math.min(d.target, d.open + dt / 0.6) : Math.max(d.target, d.open - dt / 0.6);
+      this.renderer.shadowMap.needsUpdate = true;
       if (d.slide) { const k = easeInOut(d.open); d.pivot.position.copy(d.base).addScaledVector(d.shut, 1 - k).addScaledVector(d.track, k); }
       else d.pivot.quaternion.copy(d.base).multiply(new THREE.Quaternion().setFromAxisAngle(d.axis, d.sign * easeInOut(d.open) * Math.PI / 2)); }
   }
@@ -506,7 +565,7 @@ export class Walkable {
     if (c.width !== Math.floor(w * pr) || c.height !== Math.floor(h * pr)) { r.setSize(w, h, false); this.camera.aspect = w / h; this.camera.updateProjectionMatrix(); }
     const dt = Math.min(this.clock.getDelta(), 0.05);
     if (this.mixer && this.data.model.animations !== false) this.mixer.update(dt);
-    this.stepLayout(performance.now()); this.stepDoors(dt);
+    this.stepLayout(performance.now()); this.stepDoors(dt); this.adapt(dt);
     if (this.tween) { const k = Math.min(1, (performance.now() - this.tween.start) / this.tween.dur), e = easeInOut(k); this.camera.position.lerpVectors(this.tween.p0, this.tween.p1, e); this.orbit.target.lerpVectors(this.tween.t0, this.tween.t1, e); if (k >= 1) this.tween = null; }
     if (this.mode === 'walk') { for (let i = 0; i < 3; i++) this.walkStep(dt / 3); } else if (this.mode === 'fly') this.flyStep(dt); else this.orbit.update();
     if (this.selectionHelper) this.selectionHelper.update();

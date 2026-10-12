@@ -206,6 +206,7 @@ async function start() {
     $('pct').textContent = 'Setting up the room';
     if (/\.js(\?|$)/.test(modelFile)) { const t = new TextDecoder().decode(buf); const b64 = t.slice(t.indexOf('"') + 1, t.lastIndexOf('"')); buf = new Uint8Array(await (await fetch('data:application/octet-stream;base64,' + b64)).arrayBuffer()); }
     await engine.loadModel(buf.buffer);
+    $('pct').textContent = 'Getting it ready for this device'; await new Promise(r => setTimeout(r, 30)); engine.optimizeForViewing();
   } catch (e) { console.error(e); gate('missing', 'The model could not be opened', 'Try again in a moment. If it keeps happening, let your architect know.'); return; }
   $('bar').style.width = '100%';
   engine.goToView(engine.frameView('iso'), false);
